@@ -23,7 +23,7 @@ namespace Types
         public const ulong FileFBitBoard = FileABitBoard << (8 * 5);
         public const ulong FileGBitBoard = FileABitBoard << (8 * 6);
         public const ulong FileHBitBoard = FileABitBoard << (8 * 7);
-        public static File FileOf(Square square)
+        public static File Of(Square square)
         {
             return (File)((int)square & 7);
         }
@@ -31,10 +31,5 @@ namespace Types
         {
             return file >= File.FileA && file <= File.FileH;
         }
-        public static Bitboard BitBoard(File file)
-        {
-            return new(FileABitBoard << (int)file);
-        }
-
     }
 }

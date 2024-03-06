@@ -42,11 +42,6 @@ namespace Types
         NorthWest = North + West
     };
 
-
-
-
-
-
     public enum MoveType
     {
         Normal,

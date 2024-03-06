@@ -23,7 +23,7 @@ namespace Types
         public const ulong Rank7BitBoard = Rank1BitBoard << (8 * 6);
         public const ulong Rank8BitBoard = Rank1BitBoard << (8 * 7);
 
-        public static Rank RankOf(Square square)
+        public static Rank Of(Square square)
         {
             return (Rank)((int)square >> 3);
         }
@@ -33,15 +33,11 @@ namespace Types
         }
         public static Rank RelativeRank(Color color, Square square)
         {
-            return RelativeRank(color, RankOf(square));
+            return RelativeRank(color, Of(square));
         }
         public static bool InRange(Rank rank)
         {
             return rank >= Rank.Rank1 && rank <= Rank.Rank8;
-        }
-        public static Bitboard BitBoard(Rank rank)
-        {
-            return new(Rank1BitBoard << (8 * (int)rank));
         }
 
     }

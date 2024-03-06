@@ -43,9 +43,5 @@ namespace Types
         {
             return (Piece)(((int)color << 3) + pieceType);
         }
-        public static Bitboard BitBoard(Square square)
-        {
-            return Files.BitBoard(Files.FileOf(square));
-        }
     }
 }

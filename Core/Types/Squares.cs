@@ -21,13 +21,9 @@ namespace Types
         {
             return square >= Square.A1 && square <= Square.H8;
         }
-        public static Bitboard BitBoard(Square square)
+        public static Square Of(File file, Rank rank)
         {
-            if (!InRange(square))
-            {
-                throw new IndexOutOfRangeException("Square is out of bounds");
-            }
-            return new(1UL << (int)square);
+            return (Square)((int)file + (int)rank * 8);
         }
     }
 }
