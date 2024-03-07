@@ -5,9 +5,7 @@ namespace Core
 {
     class AttackTables
     {
-        public static readonly ulong[] KnightAttacks = GenerateKnightAttacks();
-
-        public static ulong[] GenerateKnightAttacks()
+        public static readonly ulong[] KnightAttacks = new Func<ulong[]>(() =>
         {
             ulong[] knightAttacks = new ulong[64];
             for (Square square = Square.A1; square <= Square.H8; square++)
@@ -22,6 +20,20 @@ namespace Core
                 knightAttacks[(int)square] = currentAttacks;
             }
             return knightAttacks;
+        })();
+
+        public static readonly ulong[] KingAttacks = new Func<ulong[]>(() =>
+        {
+            ulong[] kingAttacks = new ulong[64];
+            for (Square square = Square.A1; square <= Square.H8; square++)
+            {
+                ulong king = Bitboards.Of(square);
+                ulong currentAttacks = Bitboards.East(king) | Bitboards.West(king);
+                king |= currentAttacks;
+                kingAttacks[(int)square] = currentAttacks |= king >> 8 | king << 8;
+            }
+            return kingAttacks;
         }
+        )();
     }
 }
