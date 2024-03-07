@@ -1,4 +1,11 @@
-﻿using Chess;
+﻿using Core;
+using Types;
+using File = Types.File;
 
-Board b = new();
-Console.WriteLine(b);
+Position p = new();
+p.StartingPosition();
+
+for (int i = 0; i < 64; i++)
+{
+    Bitboards.Print(AttackTables.KnightAttacks[i]);
+}
