@@ -21,6 +21,16 @@ namespace Types
             return Of(Squares.Of(file, rank));
         }
 
+        public static ulong East(ulong bitboard)
+        {
+            return (bitboard << 1) & ~Files.BitboardA;
+        }
+
+        public static ulong West(ulong bitboard)
+        {
+            return (bitboard >> 1) & ~Files.BitboardH;
+        }
+
         public static void Print(ulong bitboard)
         {
             char piece;
