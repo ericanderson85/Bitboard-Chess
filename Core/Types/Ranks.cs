@@ -2,26 +2,26 @@ namespace Types
 {
     public enum Rank
     {
-        Rank1,
-        Rank2,
-        Rank3,
-        Rank4,
-        Rank5,
-        Rank6,
-        Rank7,
-        Rank8
+        One,
+        Two,
+        Three,
+        Four,
+        Five,
+        Six,
+        Seven,
+        Eight
     };
     public static class Ranks
     {
 
-        public const ulong Rank1BitBoard = 0xFF;
-        public const ulong Rank2BitBoard = Rank1BitBoard << (8 * 1);
-        public const ulong Rank3BitBoard = Rank1BitBoard << (8 * 2);
-        public const ulong Rank4BitBoard = Rank1BitBoard << (8 * 3);
-        public const ulong Rank5BitBoard = Rank1BitBoard << (8 * 4);
-        public const ulong Rank6BitBoard = Rank1BitBoard << (8 * 5);
-        public const ulong Rank7BitBoard = Rank1BitBoard << (8 * 6);
-        public const ulong Rank8BitBoard = Rank1BitBoard << (8 * 7);
+        public const ulong BitboardOne = 0xFF;
+        public const ulong BitboardTwo = BitboardOne << (8 * 1);
+        public const ulong BitboardThree = BitboardOne << (8 * 2);
+        public const ulong BitboardFour = BitboardOne << (8 * 3);
+        public const ulong BitboardFive = BitboardOne << (8 * 4);
+        public const ulong BitboardSix = BitboardOne << (8 * 5);
+        public const ulong BitboardSeven = BitboardOne << (8 * 6);
+        public const ulong BitboardEight = BitboardOne << (8 * 7);
 
         public static Rank Of(Square square)
         {
@@ -37,7 +37,7 @@ namespace Types
         }
         public static bool InRange(Rank rank)
         {
-            return rank >= Rank.Rank1 && rank <= Rank.Rank8;
+            return rank >= Rank.One && rank <= Rank.Eight;
         }
 
     }
