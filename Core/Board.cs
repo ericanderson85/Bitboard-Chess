@@ -22,9 +22,9 @@ namespace Core
         {
             char piece;
             string output = "+---+---+---+---+---+---+---+---+\n";
-            for (Rank rank = Rank.Rank8; rank >= Rank.Rank1; rank--)
+            for (Rank rank = Rank.Eight; rank >= Rank.One; rank--)
             {
-                for (File file = File.FileA; file <= File.FileH; file++)
+                for (File file = File.A; file <= File.H; file++)
                 {
                     ulong mask = Bitboards.Of(file, rank);
                     piece = ' ';

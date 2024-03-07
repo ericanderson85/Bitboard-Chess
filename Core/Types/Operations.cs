@@ -6,9 +6,9 @@ namespace Types
         {
             return (color == Color.White ? CastlingRights.WhiteCastling : CastlingRights.BlackCastling) & castlingRights;
         }
-        public static Direction Add(Direction direction1, Direction direction2)
+        public static int Add(Direction direction1, Direction direction2)
         {
-            return (Direction)((int)direction1 + (int)direction2);
+            return (int)direction1 + (int)direction2;
         }
         public static Square Add(Square square, Direction direction)
         {

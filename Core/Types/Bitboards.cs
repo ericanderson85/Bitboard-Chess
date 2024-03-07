@@ -9,11 +9,11 @@ namespace Types
 
         public static ulong Of(File file)
         {
-            return Files.FileABitBoard << (int)file;
+            return Files.BitboardA << (int)file;
         }
         public static ulong Of(Rank rank)
         {
-            return Ranks.Rank1BitBoard << (8 * (int)rank);
+            return Ranks.BitboardOne << (8 * (int)rank);
         }
 
         public static ulong Of(File file, Rank rank)
@@ -25,9 +25,9 @@ namespace Types
         {
             char piece;
             Console.WriteLine("+---+---+---+---+---+---+---+---+");
-            for (Rank rank = Rank.Rank8; rank >= Rank.Rank1; rank--)
+            for (Rank rank = Rank.Eight; rank >= Rank.One; rank--)
             {
-                for (File file = File.FileA; file <= File.FileH; file++)
+                for (File file = File.A; file <= File.H; file++)
                 {
                     piece = (bitboard & Of(file, rank)) != 0 ? 'X' : ' ';
 

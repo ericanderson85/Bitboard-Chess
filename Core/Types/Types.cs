@@ -41,13 +41,4 @@ namespace Types
         SouthWest = South + West,
         NorthWest = North + West
     };
-
-    public enum MoveType
-    {
-        Normal,
-        Promotion = 1 << 14,
-        EnPassant = 2 << 14,
-        Castling = 3 << 14
-    };
-
 }
