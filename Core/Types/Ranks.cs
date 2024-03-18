@@ -14,7 +14,7 @@ namespace Types
     public static class Ranks
     {
 
-        public const ulong BitboardOne = 0xFF;
+        public const ulong BitboardOne = 0xFFUL;
         public const ulong BitboardTwo = BitboardOne << (8 * 1);
         public const ulong BitboardThree = BitboardOne << (8 * 2);
         public const ulong BitboardFour = BitboardOne << (8 * 3);

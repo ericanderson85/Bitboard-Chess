@@ -8,8 +8,7 @@ namespace Types
         Bishop,
         Rook,
         Queen,
-        King,
-        AllPieces = 0
+        King
     };
 
     public enum Piece

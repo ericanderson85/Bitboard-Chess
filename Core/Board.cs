@@ -3,7 +3,7 @@ using File = Types.File;
 
 namespace Core
 {
-    public struct Board
+    public class Board
     {
         public ulong WhitePawns; public ulong WhiteKnights; public ulong WhiteBishops; public ulong WhiteRooks; public ulong WhiteQueens; public ulong WhiteKing;
         public ulong BlackPawns; public ulong BlackKnights; public ulong BlackBishops; public ulong BlackRooks; public ulong BlackQueens; public ulong BlackKing;
@@ -18,6 +18,78 @@ namespace Core
             AllPieces = WhitePieces | BlackPieces;
         }
 
+        public ref ulong Pieces(PieceType pieceType, Color turn)
+        {
+
+            switch (pieceType)
+            {
+                case PieceType.Pawn:
+                    return ref turn == Color.White ? ref WhitePawns : ref BlackPawns;
+                case PieceType.Knight:
+                    return ref turn == Color.White ? ref WhiteKnights : ref BlackKnights;
+                case PieceType.Bishop:
+                    return ref turn == Color.White ? ref WhiteBishops : ref BlackBishops;
+                case PieceType.Rook:
+                    return ref turn == Color.White ? ref WhiteRooks : ref BlackRooks;
+                case PieceType.Queen:
+                    return ref turn == Color.White ? ref WhiteQueens : ref BlackQueens;
+                case PieceType.King:
+                    return ref turn == Color.White ? ref WhiteKing : ref BlackKing;
+                default:
+                    return ref AllPieces;
+            }
+        }
+
+        public void Move(Move move, PieceType pieceType, PieceType enemyPieceType, Color turn)
+        {
+
+            if (move.TypeOfMove() == MoveType.Normal)
+            {
+                ref ulong pieces = ref Pieces(pieceType, turn);
+                if (enemyPieceType != PieceType.None)
+                {
+                    ref ulong enemyPieces = ref Pieces(enemyPieceType, ~turn);
+                    Capture(move, ref pieces, ref enemyPieces);
+                }
+                else
+                {
+                    Move(move, ref pieces);
+                }
+            }
+
+        }
+        private void Move(Move move, ref ulong pieces)
+        {
+            RemovePiece(ref pieces, move.From());
+            AddPiece(ref pieces, move.To());
+        }
+
+        private void Capture(Move move, ref ulong pieces, ref ulong enemyPieces)
+        {
+            RemovePiece(ref pieces, move.From());
+            RemovePiece(ref enemyPieces, move.To());
+            AddPiece(ref pieces, move.To());
+        }
+
+        private void RemovePiece(ref ulong pieces, Square square)
+        {
+            ulong squareBitboard = Bitboards.FromSquare(square);
+            pieces &= ~squareBitboard;
+            WhitePieces &= ~squareBitboard;
+            BlackPieces &= ~squareBitboard;
+            AllPieces &= ~squareBitboard;
+        }
+
+        private void AddPiece(ref ulong pieces, Square square)
+        {
+            ulong squareBitboard = Bitboards.FromSquare(square);
+            pieces |= squareBitboard;
+            WhitePieces |= squareBitboard;
+            BlackPieces |= squareBitboard;
+            AllPieces |= squareBitboard;
+        }
+
+
         public override string ToString()
         {
             char piece;
@@ -26,7 +98,7 @@ namespace Core
             {
                 for (File file = File.A; file <= File.H; file++)
                 {
-                    ulong mask = Bitboards.Of(file, rank);
+                    ulong mask = Bitboards.FromSquare(file, rank);
                     piece = ' ';
                     if ((WhitePawns & mask) != 0) piece = 'P';
                     else if ((WhiteKnights & mask) != 0) piece = 'N';

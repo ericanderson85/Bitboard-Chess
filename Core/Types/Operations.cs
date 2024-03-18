@@ -31,9 +31,5 @@ namespace Types
         {
             return square ^ Square.A8;
         }
-        public static Color Flip(Color color)
-        {
-            return color ^ Color.Black;
-        }
     }
 }

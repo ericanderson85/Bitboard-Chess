@@ -1,5 +1,6 @@
 namespace Types
 {
+    [Flags]
     public enum Color
     {
         White,
@@ -14,6 +15,7 @@ namespace Types
         Exact = Upper | Lower
     }
 
+    [Flags]
     public enum CastlingRights
     {
         NoCastling,

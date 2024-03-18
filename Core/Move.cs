@@ -80,5 +80,10 @@ namespace Core
         {
             return other is Move move && _data == move._data;
         }
+
+        public override string ToString()
+        {
+            return From().ToString() + " -> " + To().ToString();
+        }
     }
 }
