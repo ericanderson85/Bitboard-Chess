@@ -1,6 +1,5 @@
 namespace Types
 {
-    [Flags]
     public enum Color
     {
         White,
@@ -9,26 +8,23 @@ namespace Types
 
     public enum Bounds
     {
-        None,
-        Upper,
+        Exact,
         Lower,
-        Exact = Upper | Lower
+        Upper
     }
 
     [Flags]
     public enum CastlingRights
     {
-        NoCastling,
-        WhiteKingSide,
-        WhiteQueenSide = WhiteKingSide << 1,
-        BlackKingSide = WhiteKingSide << 2,
-        BlackQueenSide = WhiteKingSide << 3,
+        None = 0,
+        WhiteKingSide = 1,
+        WhiteQueenSide = 2,
+        BlackKingSide = 4,
+        BlackQueenSide = 8,
 
-        KingSide = WhiteKingSide | BlackKingSide,
-        QueenSide = WhiteQueenSide | BlackQueenSide,
         WhiteCastling = WhiteKingSide | WhiteQueenSide,
         BlackCastling = BlackKingSide | BlackQueenSide,
-        AnyCastling = WhiteCastling | BlackCastling
+        All = WhiteCastling | BlackCastling
     };
 
     public enum Direction

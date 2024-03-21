@@ -13,34 +13,18 @@ namespace Types
 
     public enum Piece
     {
-        None,
-        WhitePawn = PieceType.Pawn,
+        WhitePawn,
         WhiteKnight,
         WhiteBishop,
         WhiteRook,
         WhiteQueen,
         WhiteKing,
-        BlackPawn = PieceType.Pawn + 8,
+        BlackPawn,
         BlackKnight,
         BlackBishop,
         BlackRook,
         BlackQueen,
-        BlackKing
-    }
-
-    public static class Pieces
-    {
-        public static Piece Flip(Piece piece)
-        {
-            return (Piece)((int)piece ^ 8);
-        }
-        public static PieceType TypeOf(Piece piece)
-        {
-            return (PieceType)((int)piece & 7);
-        }
-        public static Piece MakePiece(Color color, PieceType pieceType)
-        {
-            return (Piece)(((int)color << 3) + pieceType);
-        }
+        BlackKing,
+        None
     }
 }

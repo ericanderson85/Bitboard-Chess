@@ -10,7 +10,7 @@ namespace Types
         }
         public static ulong FromSquare(File file, Rank rank)
         {
-            return FromSquare(Squares.Of(file, rank));
+            return FromSquare(Types.Squares.Of(file, rank));
         }
         public static ulong FromFile(File file)
         {
@@ -41,7 +41,7 @@ namespace Types
             } while (subset != 0);
         }
 
-        public static IEnumerable<Square> GetSquaresFromBitboard(ulong bitboard)
+        public static IEnumerable<Square> Squares(ulong bitboard)
         {
             while (bitboard != 0)
             {

@@ -24,7 +24,7 @@ namespace Core
         {
             if (moveType == MoveType.Promotion)
             {
-                // 2 subtracted from promotionPiece to fit inside of the short
+                // 2 subtracted from promotionPiece to fit inside the short (pieces valid for promotion enumerated starting at 2)
                 _data = (ushort)((int)moveType | ((int)promotionPiece - 2) << 12 | ((int)from << 6) | (int)to);
             }
             else
@@ -83,7 +83,10 @@ namespace Core
 
         public override string ToString()
         {
-            return From().ToString() + " -> " + To().ToString();
+            string move = From().ToString() + " -> " + To().ToString();
+            if (TypeOfMove() != MoveType.Normal) move += $" {TypeOfMove()}";
+            if (TypeOfMove() == MoveType.Promotion) move += $" {PromotionPieceType()}";
+            return move;
         }
     }
 }

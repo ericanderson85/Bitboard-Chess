@@ -133,3 +133,6 @@ $RECYCLE.BIN/
 .DS_Store
 
 _NCrunch*
+.vs/chess/xs/UserPrefs.xml
+.vs/chess/xs/project-cache/chess-Debug.json
+.vs/chess/xs/project-cache/chess-Release.json

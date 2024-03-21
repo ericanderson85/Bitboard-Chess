@@ -1,68 +1,89 @@
-﻿using Core;
-using Types;
+﻿using Types;
+using System.Diagnostics;
+using Core;
 
-Position p = new();
-Random r = new();
-Console.WriteLine(p.CurrentBoard);
-for (int i = 0; i < 50; i++)
+
+
+public static class Program
 {
-    List<(Move, PieceType)> allMoves = new();
-    foreach (Move pawnMove in p.PawnMoves()) allMoves.Add((pawnMove, PieceType.Pawn));
-    foreach (Move knightMove in p.KnightMoves()) allMoves.Add((knightMove, PieceType.Knight));
-    foreach (Move bishopMove in p.BishopMoves()) allMoves.Add((bishopMove, PieceType.Bishop));
-    foreach (Move rookMove in p.RookMoves()) allMoves.Add((rookMove, PieceType.Rook));
-    foreach (Move queenMove in p.QueenMoves()) allMoves.Add((queenMove, PieceType.Queen));
-    foreach (Move kingMove in p.KingMoves()) allMoves.Add((kingMove, PieceType.King));
+    static Position P = new();
+    static readonly Random rng = new();
+    static ulong _moveCount = 0;
+    static readonly Timer Time = new Timer(TimerCallback, null, Timeout.Infinite, 1000);
+    static readonly Stopwatch StopWatch = new();
 
-    int index = r.Next(allMoves.Count);
-    Move move = allMoves[index].Item1;
-    PieceType pieceType = allMoves[index].Item2;
-    p.PerformMove(move, pieceType);
-    Console.WriteLine(move);
-    Console.WriteLine(p.CurrentBoard);
+    public static void Main(string[] args)
+    {
+        P = new("rnbqkbnr/pPpppppp/8/8/8/8/P1PPPPPP/RNBQK2R w KQkq - 0 1");
+        Console.WriteLine(P);
+        foreach (var move in P.AllMoves())
+        {
+            P.PerformMove(move);
+            Console.WriteLine(P);
+            P.UndoMove(move);
+        }
+
+
+        // StopWatch.Start();
+        // Time.Change(0, 1000);
+
+        // Move(int.Parse(args[0]));
+
+        // StopWatch.Stop();
+
+        // TimeSpan ts = StopWatch.Elapsed;
+
+        // Console.WriteLine($"Searched {_moveCount:N0} nodes in {(ts.TotalMilliseconds / 1000.0).ToString("N")} seconds");
+        // Console.WriteLine($"Nodes per second: {(_moveCount / (StopWatch.ElapsedMilliseconds / 1000.0)).ToString("N0")}");
+    }
+
+    private static void TimerCallback(Object? o)
+    {
+        if (_moveCount == 0) return;
+        Console.WriteLine($"Searched {_moveCount:N0} nodes in {StopWatch.ElapsedMilliseconds / 1000} seconds");
+        Console.WriteLine(P + "\n");
+    }
+
+    public static void Move(int depth)
+    {
+        if (depth == 0)
+        {
+            return;
+        }
+
+        foreach (MoveWrapper move in P.AllMoves())
+        {
+            P.PerformMove(move);
+            Move(depth - 1);
+            _moveCount++;
+            P.UndoMove(move);
+        }
+    }
+
+    public static void MoveDebug(int depth)
+    {
+        if (depth == 0)
+        {
+            Console.WriteLine("\nUndoing...\n");
+            return;
+        }
+
+        var all = P.AllMoves().ToArray();
+        var move = all[rng.Next(all.Length)];
+        Console.Write($"{P.CurrentState.Turn.ToString()[0]} {move}");
+        P.PerformMove(move);
+        if (move.EnemyPieceType != PieceType.None) Console.WriteLine($" capturing {move.EnemyPieceType}");
+        else Console.WriteLine();
+
+        Console.WriteLine(P);
+
+
+        MoveDebug(depth - 1);
+
+
+
+        P.UndoMove(move);
+        Console.WriteLine($"Undoing {move}");
+        Console.WriteLine(P);
+    }
 }
-
-// using Core;
-// using Types;
-
-// int[] RBits = new int[]{
-//   12, 11, 11, 11, 11, 11, 11, 12,
-//   11, 10, 10, 10, 10, 10, 10, 11,
-//   11, 10, 10, 10, 10, 10, 10, 11,
-//   11, 10, 10, 10, 10, 10, 10, 11,
-//   11, 10, 10, 10, 10, 10, 10, 11,
-//   11, 10, 10, 10, 10, 10, 10, 11,
-//   11, 10, 10, 10, 10, 10, 10, 11,
-//   12, 11, 11, 11, 11, 11, 11, 12
-// };
-
-// int[] BBits = new int[]{
-//   6, 5, 5, 5, 5, 5, 5, 6,
-//   5, 5, 5, 5, 5, 5, 5, 5,
-//   5, 5, 7, 7, 7, 7, 5, 5,
-//   5, 5, 7, 9, 9, 7, 5, 5,
-//   5, 5, 7, 9, 9, 7, 5, 5,
-//   5, 5, 7, 7, 7, 7, 5, 5,
-//   5, 5, 5, 5, 5, 5, 5, 5,
-//   6, 5, 5, 5, 5, 5, 5, 6
-// };
-
-// List<MagicEntry> values = new();
-// Random r = new();
-// Square square = Square.A1;
-// foreach (int bits in RBits)
-// {
-//     values.Add(Magic.FindRookMagic(square, bits, r));
-//     square++;
-// }
-
-// Console.WriteLine();
-// Console.WriteLine();
-// Console.WriteLine();
-// Console.WriteLine();
-// Console.WriteLine();
-
-// foreach (MagicEntry entry in values)
-// {
-//     Console.WriteLine(-(entry._indexShift - 64) + " " + entry._magic.ToString("X"));
-// }

@@ -26,6 +26,11 @@ namespace Types
             return (Square)((int)file + (int)rank * 8);
         }
 
+        public static Square Of(string squareNotation)
+        {
+            return Of((File)squareNotation[0] - 'a', (Rank)squareNotation[1] - '1');
+        }
+
         public static IEnumerable<Square> All =>
             from rank in Enumerable.Range(0, 8)
             from file in Enumerable.Range(0, 8)
