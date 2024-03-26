@@ -24,7 +24,14 @@ namespace Types
         BlackBishop,
         BlackRook,
         BlackQueen,
-        BlackKing,
-        None
+        BlackKing
+    }
+
+    public static class Pieces
+    {
+        public static Piece GetPiece(PieceType pieceType, Color color)
+        {
+            return (Piece)(pieceType + (color == Color.White ? -1 : 5));
+        }
     }
 }

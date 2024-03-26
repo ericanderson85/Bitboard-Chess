@@ -83,10 +83,8 @@ namespace Core
 
         public override string ToString()
         {
-            string move = From().ToString() + " -> " + To().ToString();
-            if (TypeOfMove() != MoveType.Normal) move += $" {TypeOfMove()}";
-            if (TypeOfMove() == MoveType.Promotion) move += $" {PromotionPieceType()}";
-            return move;
+            string move = From().ToString() + To().ToString();
+            return move.ToLower();
         }
     }
 }

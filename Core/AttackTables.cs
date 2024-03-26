@@ -11,7 +11,7 @@ namespace Core
             for (Square square = Square.A1; square <= Square.H8; square++)
             {
                 File file = Files.Of(square);
-                ulong knight = Bitboards.FromSquare(square);
+                ulong knight = Bitboards.From(square);
                 ulong currentAttacks = 0;
                 if (file != File.H) currentAttacks |= knight << 17 | knight >> 15;  // NorthNorthWest and SouthSouthWest
                 if (file < File.G) currentAttacks |= knight << 10 | knight >> 6;    // NorthWestWest and SouthWestWest
@@ -27,7 +27,7 @@ namespace Core
             ulong[] kingAttacks = new ulong[64];
             for (Square square = Square.A1; square <= Square.H8; square++)
             {
-                ulong king = Bitboards.FromSquare(square);
+                ulong king = Bitboards.From(square);
                 ulong currentAttacks = Bitboards.East(king) | Bitboards.West(king);
                 king |= currentAttacks;
                 kingAttacks[(int)square] = currentAttacks |= king >> 8 | king << 8;

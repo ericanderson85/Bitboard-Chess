@@ -13,6 +13,18 @@ namespace Types
     };
     public static class Squares
     {
+
+        public static Square FromString(string squareStr)
+        {
+            if (squareStr.Length != 2)
+                throw new ArgumentException("Square string must be 2 characters long.", nameof(squareStr));
+
+            File file = (File)(squareStr[0] - 'a');
+            Rank rank = (Rank)int.Parse(squareStr[1].ToString()) - 1;
+
+            return Of(file, rank);
+        }
+
         public static Square RelativeSquare(Color color, Square square)
         {
             return (Square)((int)square ^ ((int)color * 56));

@@ -113,7 +113,7 @@ namespace Core
                 {
                     foreach (Square destination in moveSequence)
                     {
-                        ulong destinationBoard = Bitboards.FromSquare(destination);
+                        ulong destinationBoard = Bitboards.From(destination);
                         moves |= destinationBoard;
                         if ((blockers & destinationBoard) != 0) break;
                     }

@@ -4,19 +4,19 @@ namespace Types
 {
     public static class Bitboards
     {
-        public static ulong FromSquare(Square square)
+        public static ulong From(Square square)
         {
             return 1UL << (int)square;
         }
-        public static ulong FromSquare(File file, Rank rank)
+        public static ulong From(File file, Rank rank)
         {
-            return FromSquare(Types.Squares.Of(file, rank));
+            return From(Squares.Of(file, rank));
         }
-        public static ulong FromFile(File file)
+        public static ulong From(File file)
         {
             return Files.BitboardA << (int)file;
         }
-        public static ulong FromRank(Rank rank)
+        public static ulong From(Rank rank)
         {
             return Ranks.BitboardOne << (8 * (int)rank);
         }
@@ -41,19 +41,19 @@ namespace Types
             } while (subset != 0);
         }
 
-        public static IEnumerable<Square> Squares(ulong bitboard)
+        public static IEnumerable<Square> ToSquares(ulong bitboard)
         {
             while (bitboard != 0)
             {
-                Square lsbSquare = (Square)LSB(bitboard);
+                Square lsbSquare = LSB(bitboard);
                 yield return lsbSquare;
-                bitboard ^= FromSquare(lsbSquare);
+                bitboard ^= From(lsbSquare);
             }
         }
 
-        public static int LSB(ulong bitboard)
+        public static Square LSB(ulong bitboard)
         {
-            return BitOperations.TrailingZeroCount(bitboard);
+            return (Square)BitOperations.TrailingZeroCount(bitboard);
         }
 
         public static void Print(ulong bitboard)
@@ -64,7 +64,7 @@ namespace Types
             {
                 for (File file = File.A; file <= File.H; file++)
                 {
-                    piece = (bitboard & FromSquare(file, rank)) != 0 ? 'X' : ' ';
+                    piece = (bitboard & From(file, rank)) != 0 ? 'X' : ' ';
 
 
                     Console.Write("| " + piece + " ");

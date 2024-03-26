@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Types;
 using File = Types.File;
 
@@ -21,7 +22,17 @@ namespace Core
 
         public override string ToString()
         {
-            return Move.ToString();
+            string destination = Move.ToString();
+            string promotion = Move.PromotionPieceType() switch
+            {
+                PieceType.Queen => "q",
+                PieceType.Rook => "r",
+                PieceType.Bishop => "b",
+                PieceType.Knight => "n",
+                _ => "",
+            };
+
+            return $"{destination}{promotion}";
         }
     }
 
@@ -30,6 +41,7 @@ namespace Core
         private static readonly Magic _magic = Magic.Hardcoded();
         public Board CurrentBoard;
         public State CurrentState;
+        public ulong ZobristKey;
         public Position()
         {
             CurrentBoard = new(
@@ -48,12 +60,14 @@ namespace Core
             );
             CurrentState = new(
                 previous: null,
+                previousKey: null,
                 turn: Color.White,
                 castlingRights: CastlingRights.All,
                 enPassantSquare: null,
                 halfMoveClock: 0,
                 moveCount: 0
             );
+            ZobristKey = Zobrist.CalculateHash(CurrentBoard, CurrentState);
         }
 
         public Position(string fen)
@@ -64,6 +78,8 @@ namespace Core
             CurrentBoard = ParseBoardLayout(parts[0]);
 
             CurrentState = ParseStateLayout(parts);
+
+            ZobristKey = Zobrist.CalculateHash(CurrentBoard, CurrentState);
         }
 
         public MoveWrapper CreateMove(PieceType pieceType, Square from, Square to, MoveType moveType = MoveType.Normal, PieceType promotionPieceType = PieceType.None, Square? enPassantSquare = null)
@@ -76,6 +92,40 @@ namespace Core
             );
         }
 
+        public MoveWrapper CreateMove(string uciMove)
+        {
+            Square from = Squares.FromString(uciMove[..2]);
+            Square to = Squares.FromString(uciMove.Substring(2, 2));
+            PieceType pieceType = CurrentBoard.TypeAtSquare(from);
+            MoveType moveType = MoveType.Normal;
+            PieceType promotionPieceType = PieceType.None;
+            Square? enPassantSquare = null;
+
+
+            if (pieceType == PieceType.King && int.Abs(Files.Of(from) - Files.Of(to)) == 2)
+                moveType = MoveType.Castling;
+            else if (pieceType == PieceType.Pawn)
+            {
+                if (uciMove.Length > 4)
+                {
+                    char promotionChar = uciMove[4];
+                    promotionPieceType = promotionChar switch
+                    {
+                        'q' => PieceType.Queen,
+                        'r' => PieceType.Rook,
+                        'b' => PieceType.Bishop,
+                        'n' => PieceType.Knight,
+                        _ => PieceType.None,
+                    };
+                    moveType = MoveType.Promotion;
+                }
+                else if (CurrentState.EnPassantSquare == to) moveType = MoveType.EnPassant;
+                else if (int.Abs(from - to) == 16) enPassantSquare = to + (to - from) / 2;
+            }
+
+            return CreateMove(pieceType, from, to, moveType, promotionPieceType, enPassantSquare);
+        }
+
         private State NewState(MoveWrapper move)
         {
             CastlingRights castlingRights = CurrentState.CastlingRights;
@@ -86,53 +136,84 @@ namespace Core
             {
                 if (CurrentState.Turn == Color.White)
                 {
-                    if (move.Move.To() == Square.H1) castlingRights &= ~CastlingRights.WhiteKingSide;
-                    else if (move.Move.To() == Square.A1) castlingRights &= ~CastlingRights.WhiteQueenSide;
+                    if (move.Move.From() == Square.H1) castlingRights &= ~CastlingRights.WhiteKingSide;
+                    else if (move.Move.From() == Square.A1) castlingRights &= ~CastlingRights.WhiteQueenSide;
                 }
                 else
                 {
+                    if (move.Move.From() == Square.H8) castlingRights &= ~CastlingRights.BlackKingSide;
+                    else if (move.Move.From() == Square.A8) castlingRights &= ~CastlingRights.BlackQueenSide;
+                }
+            }
+
+            if (move.EnemyPieceType == PieceType.Rook)
+            {
+                if (CurrentState.Turn == Color.White)
+                {
                     if (move.Move.To() == Square.H8) castlingRights &= ~CastlingRights.BlackKingSide;
                     else if (move.Move.To() == Square.A8) castlingRights &= ~CastlingRights.BlackQueenSide;
+                }
+                else
+                {
+                    if (move.Move.To() == Square.H1) castlingRights &= ~CastlingRights.WhiteKingSide;
+                    else if (move.Move.To() == Square.A1) castlingRights &= ~CastlingRights.WhiteQueenSide;
                 }
             }
 
             bool resetClock = move.PieceType == PieceType.Pawn || move.EnemyPieceType == PieceType.None;
 
             return new(
+                previous: CurrentState,
+                previousKey: ZobristKey,
                 turn: CurrentState.Turn ^ Color.Black,
                 castlingRights: castlingRights,
-                halfMoveClock: resetClock ? 0 : CurrentState.HalfMoveClock + 1,
-                moveCount: CurrentState.MoveCount + (int)CurrentState.Turn,
                 enPassantSquare: move.EnPassantSquare,
-                previous: CurrentState
+                halfMoveClock: resetClock ? 0 : CurrentState.HalfMoveClock + 1,
+                moveCount: CurrentState.MoveCount + (int)CurrentState.Turn
             );
 
         }
         public void PerformMove(MoveWrapper move)
         {
             CurrentBoard.Move(move.Move, move.PieceType, move.EnemyPieceType, CurrentState.Turn);
+            State prevState = CurrentState;
             CurrentState = NewState(move);
+            Zobrist.UpdateHash(ref ZobristKey, move, prevState, CurrentState);
+            // ulong h = Zobrist.CalculateHash(CurrentBoard, CurrentState);
+            // if (h != ZobristKey)
+            // {
+            //     Console.WriteLine(move);
+            //     Console.WriteLine($"{h} != {ZobristKey}");
+            //     if (move.EnemyPieceType != PieceType.None) Console.WriteLine($"{move.PieceType} captures {move.EnemyPieceType}");
+            //     else Console.WriteLine("\nNO CAPTURE\n");
+            //     Console.WriteLine(this);
+            //     Console.WriteLine("\n");
+            // }
+
         }
-
-
-
         public void UndoMove(MoveWrapper move)
         {
-            if (CurrentState.Previous == null)
+            if (CurrentState.Previous == null || CurrentState.PreviousKey == null)
                 throw new Exception("Can't undo move");
 
+            ZobristKey = (ulong)CurrentState.PreviousKey;
             CurrentState = CurrentState.Previous;
             CurrentBoard.UndoMove(move.Move, move.PieceType, move.EnemyPieceType, CurrentState.Turn);
         }
 
-        public IEnumerable<MoveWrapper> AllMoves()
+        public List<MoveWrapper> AllMoves()
         {
-            return PawnMoves().Concat(KnightMoves()).Concat(BishopMoves()).Concat(RookMoves()).Concat(QueenMoves()).Concat(KingMoves());
+            return PawnMoves().Concat(KnightMoves()).Concat(BishopMoves()).Concat(RookMoves()).Concat(QueenMoves()).Concat(KingMoves()).ToList();
+        }
+
+        public List<MoveWrapper> LoudMoves()
+        {
+            return LoudPawnMoves().Concat(KnightCaptures()).Concat(BishopCaptures()).Concat(RookCaptures()).Concat(QueenCaptures()).Concat(KingCaptures()).ToList();
         }
 
         public IEnumerable<MoveWrapper> PawnMoves()
         {
-            return CurrentState.Turn == Color.White ? WhitePawnMoves() : BlackPawnMoves();
+            return CurrentState.Turn == Color.White ? WhitePawnMoves().Concat(LoudWhitePawnMoves()) : BlackPawnMoves().Concat(LoudBlackPawnMoves());
         }
 
         public IEnumerable<MoveWrapper> WhitePawnMoves()
@@ -140,47 +221,12 @@ namespace Core
             List<MoveWrapper> pawnMoves = new();
 
             ulong singlePush = ((CurrentBoard.WhitePawns & ~Ranks.BitboardSeven) << 8) & ~CurrentBoard.AllPieces;
-            foreach (Square to in Bitboards.Squares(singlePush))
+            foreach (Square to in Bitboards.ToSquares(singlePush))
                 pawnMoves.Add(CreateMove(PieceType.Pawn, to - 8, to));
 
             ulong doublePush = ((singlePush & Ranks.BitboardThree) << 8) & ~CurrentBoard.AllPieces;
-            foreach (Square to in Bitboards.Squares(doublePush))
+            foreach (Square to in Bitboards.ToSquares(doublePush))
                 pawnMoves.Add(CreateMove(PieceType.Pawn, to - 16, to, enPassantSquare: to - 8));
-
-            ulong promotionPush = ((CurrentBoard.WhitePawns & Ranks.BitboardSeven) << 8) & ~CurrentBoard.AllPieces;
-            foreach (Square to in Bitboards.Squares(promotionPush))
-                for (PieceType promotionPieceType = PieceType.Knight; promotionPieceType <= PieceType.Queen; promotionPieceType++)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, to - 8, to, MoveType.Promotion, promotionPieceType));
-
-            ulong captureWest = ((CurrentBoard.WhitePawns & ~Files.BitboardA & ~Ranks.BitboardSeven) << 7) & CurrentBoard.BlackPieces;
-            foreach (Square to in Bitboards.Squares(captureWest))
-                pawnMoves.Add(CreateMove(PieceType.Pawn, to - 7, to));
-
-            ulong promotionCaptureWest = ((CurrentBoard.WhitePawns & ~Files.BitboardA & Ranks.BitboardSeven) << 7) & CurrentBoard.BlackPieces;
-            foreach (Square to in Bitboards.Squares(promotionCaptureWest))
-                for (PieceType promotionPieceType = PieceType.Knight; promotionPieceType <= PieceType.Queen; promotionPieceType++)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, to - 7, to, MoveType.Promotion, promotionPieceType));
-
-            ulong captureEast = ((CurrentBoard.WhitePawns & ~Files.BitboardH & ~Ranks.BitboardSeven) << 9) & CurrentBoard.BlackPieces;
-            foreach (Square to in Bitboards.Squares(captureEast))
-                pawnMoves.Add(CreateMove(PieceType.Pawn, to - 9, to));
-
-            ulong promotionCaptureEast = ((CurrentBoard.WhitePawns & ~Files.BitboardH & Ranks.BitboardSeven) << 9) & CurrentBoard.BlackPieces;
-            foreach (Square to in Bitboards.Squares(promotionCaptureEast))
-                for (PieceType promotionPieceType = PieceType.Knight; promotionPieceType <= PieceType.Queen; promotionPieceType++)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, to - 9, to, MoveType.Promotion, promotionPieceType));
-
-            if (CurrentState.EnPassantSquare != null)
-            {
-                ulong enPassant = Bitboards.FromSquare((Square)CurrentState.EnPassantSquare);
-
-                if ((((CurrentBoard.WhitePawns & ~Files.BitboardA) << 7) & enPassant) != 0)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, (Square)CurrentState.EnPassantSquare - 7, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant));
-
-                if ((((CurrentBoard.WhitePawns & ~Files.BitboardA) << 9) & enPassant) != 0)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, (Square)CurrentState.EnPassantSquare - 9, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant));
-            }
-
 
             return pawnMoves;
         }
@@ -190,125 +236,106 @@ namespace Core
             List<MoveWrapper> pawnMoves = new();
 
             ulong singlePush = ((CurrentBoard.BlackPawns & ~Ranks.BitboardTwo) >> 8) & ~CurrentBoard.AllPieces;
-            foreach (Square to in Bitboards.Squares(singlePush))
+            foreach (Square to in Bitboards.ToSquares(singlePush))
                 pawnMoves.Add(CreateMove(PieceType.Pawn, to + 8, to));
 
             ulong doublePush = ((singlePush & Ranks.BitboardSix) >> 8) & ~CurrentBoard.AllPieces;
-            foreach (Square to in Bitboards.Squares(doublePush))
-                pawnMoves.Add(CreateMove(PieceType.Pawn, to + 16, to, enPassantSquare: to - 8));
+            foreach (Square to in Bitboards.ToSquares(doublePush))
+                pawnMoves.Add(CreateMove(PieceType.Pawn, to + 16, to, enPassantSquare: to + 8));
 
-            ulong promotionPush = ((CurrentBoard.BlackPawns & Ranks.BitboardTwo) >> 8) & ~CurrentBoard.AllPieces;
-            foreach (Square to in Bitboards.Squares(promotionPush))
+            return pawnMoves;
+        }
+
+
+        public IEnumerable<MoveWrapper> LoudPawnMoves()
+        {
+            return CurrentState.Turn == Color.White ? LoudWhitePawnMoves() : LoudBlackPawnMoves();
+        }
+
+        public IEnumerable<MoveWrapper> LoudWhitePawnMoves()
+        {
+            List<MoveWrapper> loudWhiteMoves = new();
+
+
+            ulong promotionPush = ((CurrentBoard.WhitePawns & Ranks.BitboardSeven) << 8) & ~CurrentBoard.AllPieces;
+            foreach (Square to in Bitboards.ToSquares(promotionPush))
                 for (PieceType promotionPieceType = PieceType.Knight; promotionPieceType <= PieceType.Queen; promotionPieceType++)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, to + 8, to, MoveType.Promotion, promotionPieceType));
+                    loudWhiteMoves.Add(CreateMove(PieceType.Pawn, to - 8, to, MoveType.Promotion, promotionPieceType));
 
-            ulong captureWest = ((CurrentBoard.BlackPawns & ~Files.BitboardH & ~Ranks.BitboardTwo) >> 7) & CurrentBoard.WhitePieces;
-            foreach (Square to in Bitboards.Squares(captureWest))
-                pawnMoves.Add(CreateMove(PieceType.Pawn, to + 7, to));
+            ulong captureWest = ((CurrentBoard.WhitePawns & ~Files.BitboardA & ~Ranks.BitboardSeven) << 7) & CurrentBoard.BlackPieces;
+            foreach (Square to in Bitboards.ToSquares(captureWest))
+                loudWhiteMoves.Add(CreateMove(PieceType.Pawn, to - 7, to));
 
-            ulong promotionCaptureEast = ((CurrentBoard.BlackPawns & ~Files.BitboardH & Ranks.BitboardTwo) >> 7) & CurrentBoard.WhitePieces;
-            foreach (Square to in Bitboards.Squares(promotionCaptureEast))
+            ulong promotionCaptureWest = ((CurrentBoard.WhitePawns & ~Files.BitboardA & Ranks.BitboardSeven) << 7) & CurrentBoard.BlackPieces;
+            foreach (Square to in Bitboards.ToSquares(promotionCaptureWest))
                 for (PieceType promotionPieceType = PieceType.Knight; promotionPieceType <= PieceType.Queen; promotionPieceType++)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, to + 7, to, MoveType.Promotion, promotionPieceType));
+                    loudWhiteMoves.Add(CreateMove(PieceType.Pawn, to - 7, to, MoveType.Promotion, promotionPieceType));
 
-            ulong captureEast = ((CurrentBoard.BlackPawns & ~Files.BitboardA & ~Ranks.BitboardTwo) >> 9) & CurrentBoard.WhitePieces;
-            foreach (Square to in Bitboards.Squares(captureEast))
-                pawnMoves.Add(CreateMove(PieceType.Pawn, to + 9, to));
+            ulong captureEast = ((CurrentBoard.WhitePawns & ~Files.BitboardH & ~Ranks.BitboardSeven) << 9) & CurrentBoard.BlackPieces;
+            foreach (Square to in Bitboards.ToSquares(captureEast))
+                loudWhiteMoves.Add(CreateMove(PieceType.Pawn, to - 9, to));
 
-            ulong promotionCaptureWest = ((CurrentBoard.BlackPawns & ~Files.BitboardA & Ranks.BitboardTwo) >> 9) & CurrentBoard.WhitePieces;
-            foreach (Square to in Bitboards.Squares(promotionCaptureWest))
+            ulong promotionCaptureEast = ((CurrentBoard.WhitePawns & ~Files.BitboardH & Ranks.BitboardSeven) << 9) & CurrentBoard.BlackPieces;
+            foreach (Square to in Bitboards.ToSquares(promotionCaptureEast))
                 for (PieceType promotionPieceType = PieceType.Knight; promotionPieceType <= PieceType.Queen; promotionPieceType++)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, to + 9, to, MoveType.Promotion, promotionPieceType));
+                    loudWhiteMoves.Add(CreateMove(PieceType.Pawn, to - 9, to, MoveType.Promotion, promotionPieceType));
 
             if (CurrentState.EnPassantSquare != null)
             {
-                ulong enPassant = Bitboards.FromSquare((Square)CurrentState.EnPassantSquare);
+                ulong enPassant = Bitboards.From((Square)CurrentState.EnPassantSquare);
 
-                if ((((CurrentBoard.BlackPawns & ~Files.BitboardA) >> 9) & enPassant) != 0)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, (Square)CurrentState.EnPassantSquare + 9, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant));
+                if ((((CurrentBoard.WhitePawns & ~Files.BitboardA) << 7) & enPassant) != 0)
+                    loudWhiteMoves.Add(CreateMove(PieceType.Pawn, (Square)CurrentState.EnPassantSquare - 7, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant));
 
-                if ((((CurrentBoard.BlackPawns & ~Files.BitboardH) >> 7) & enPassant) != 0)
-                    pawnMoves.Add(CreateMove(PieceType.Pawn, (Square)CurrentState.EnPassantSquare + 7, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant));
+                if ((((CurrentBoard.WhitePawns & ~Files.BitboardH) << 9) & enPassant) != 0)
+                    loudWhiteMoves.Add(CreateMove(PieceType.Pawn, (Square)CurrentState.EnPassantSquare - 9, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant));
             }
 
 
-            return pawnMoves;
-
-
-            // List<Move> pawnMoves = new();
-
-            // ulong singlePush = ((CurrentBoard.BlackPawns & ~Ranks.BitboardTwo) >> 8) & ~CurrentBoard.AllPieces;
-            // foreach (Square to in Bitboards.Squares(singlePush))
-            // {
-            //     Square from = to + 8;
-            //     pawnMoves.Add(new Move(from, to));
-            // }
-
-            // ulong doublePush = ((singlePush & Ranks.BitboardSix) >> 8) & ~CurrentBoard.AllPieces;
-            // foreach (Square to in Bitboards.Squares(doublePush))
-            // {
-            //     Square from = to + 16;
-            //     pawnMoves.Add(new Move(from, to));
-            // }
-
-            // ulong promotionPush = ((CurrentBoard.BlackPawns & Ranks.BitboardTwo) >> 8) & ~CurrentBoard.AllPieces;
-            // foreach (Square to in Bitboards.Squares(promotionPush))
-            // {
-            //     Square from = to + 8;
-            //     for (PieceType pieceType = PieceType.Knight; pieceType <= PieceType.Queen; pieceType++)
-            //     {
-            //         pawnMoves.Add(new Move(from, to, MoveType.Promotion, pieceType));
-            //     }
-            // }
-
-            // ulong captureWest = ((CurrentBoard.BlackPawns & ~Files.BitboardH & ~Ranks.BitboardTwo) >> 7) & CurrentBoard.WhitePieces;
-            // foreach (Square to in Bitboards.Squares(captureWest))
-            // {
-            //     Square from = to + 7;
-            //     pawnMoves.Add(new Move(from, to));
-            // }
-
-            // ulong promotionCaptureWest = ((CurrentBoard.BlackPawns & ~Files.BitboardH & Ranks.BitboardTwo) >> 7) & CurrentBoard.WhitePieces;
-            // foreach (Square to in Bitboards.Squares(promotionCaptureWest))
-            // {
-            //     Square from = to + 7;
-            //     for (PieceType pieceType = PieceType.Knight; pieceType <= PieceType.Queen; pieceType++)
-            //     {
-            //         pawnMoves.Add(new Move(from, to, MoveType.Promotion, pieceType));
-            //     }
-            // }
-
-            // ulong captureEast = ((CurrentBoard.BlackPawns & ~Files.BitboardA & ~Ranks.BitboardTwo) >> 9) & CurrentBoard.WhitePieces;
-            // foreach (Square to in Bitboards.Squares(captureEast))
-            // {
-            //     Square from = to + 9;
-            //     pawnMoves.Add(new Move(from, to));
-            // }
-
-            // ulong promotionCaptureEast = ((CurrentBoard.BlackPawns & ~Files.BitboardA & Ranks.BitboardTwo) >> 9) & CurrentBoard.WhitePieces;
-            // foreach (Square to in Bitboards.Squares(promotionCaptureEast))
-            // {
-            //     Square from = to + 9;
-            //     for (PieceType pieceType = PieceType.Knight; pieceType <= PieceType.Queen; pieceType++)
-            //     {
-            //         pawnMoves.Add(new Move(from, to, MoveType.Promotion, pieceType));
-            //     }
-            // }
-
-            // if (CurrentState.EnPassantSquare == null)
-            //     return pawnMoves;
-
-            // ulong enPassant = Bitboards.FromSquare((Square)CurrentState.EnPassantSquare);
-
-            // if ((((CurrentBoard.BlackPawns & ~Files.BitboardH) >> 7) & enPassant) != 0)
-            //     pawnMoves.Add(new((Square)CurrentState.EnPassantSquare + 7, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant, PieceType.Pawn));
-
-            // if ((((CurrentBoard.BlackPawns & ~Files.BitboardA) >> 9) & enPassant) != 0)
-            //     pawnMoves.Add(new((Square)CurrentState.EnPassantSquare + 9, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant, PieceType.Pawn));
-
-            // return pawnMoves;
+            return loudWhiteMoves;
         }
 
+        public IEnumerable<MoveWrapper> LoudBlackPawnMoves()
+        {
+            List<MoveWrapper> loudPawnMoves = new();
+
+            ulong promotionPush = ((CurrentBoard.BlackPawns & Ranks.BitboardTwo) >> 8) & ~CurrentBoard.AllPieces;
+            foreach (Square to in Bitboards.ToSquares(promotionPush))
+                for (PieceType promotionPieceType = PieceType.Knight; promotionPieceType <= PieceType.Queen; promotionPieceType++)
+                    loudPawnMoves.Add(CreateMove(PieceType.Pawn, to + 8, to, MoveType.Promotion, promotionPieceType));
+
+            ulong captureWest = ((CurrentBoard.BlackPawns & ~Files.BitboardH & ~Ranks.BitboardTwo) >> 7) & CurrentBoard.WhitePieces;
+            foreach (Square to in Bitboards.ToSquares(captureWest))
+                loudPawnMoves.Add(CreateMove(PieceType.Pawn, to + 7, to));
+
+            ulong promotionCaptureEast = ((CurrentBoard.BlackPawns & ~Files.BitboardH & Ranks.BitboardTwo) >> 7) & CurrentBoard.WhitePieces;
+            foreach (Square to in Bitboards.ToSquares(promotionCaptureEast))
+                for (PieceType promotionPieceType = PieceType.Knight; promotionPieceType <= PieceType.Queen; promotionPieceType++)
+                    loudPawnMoves.Add(CreateMove(PieceType.Pawn, to + 7, to, MoveType.Promotion, promotionPieceType));
+
+            ulong captureEast = ((CurrentBoard.BlackPawns & ~Files.BitboardA & ~Ranks.BitboardTwo) >> 9) & CurrentBoard.WhitePieces;
+            foreach (Square to in Bitboards.ToSquares(captureEast))
+                loudPawnMoves.Add(CreateMove(PieceType.Pawn, to + 9, to));
+
+            ulong promotionCaptureWest = ((CurrentBoard.BlackPawns & ~Files.BitboardA & Ranks.BitboardTwo) >> 9) & CurrentBoard.WhitePieces;
+            foreach (Square to in Bitboards.ToSquares(promotionCaptureWest))
+                for (PieceType promotionPieceType = PieceType.Knight; promotionPieceType <= PieceType.Queen; promotionPieceType++)
+                    loudPawnMoves.Add(CreateMove(PieceType.Pawn, to + 9, to, MoveType.Promotion, promotionPieceType));
+
+            if (CurrentState.EnPassantSquare != null)
+            {
+                ulong enPassant = Bitboards.From((Square)CurrentState.EnPassantSquare);
+
+                if ((((CurrentBoard.BlackPawns & ~Files.BitboardA) >> 9) & enPassant) != 0)
+                    loudPawnMoves.Add(CreateMove(PieceType.Pawn, (Square)CurrentState.EnPassantSquare + 9, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant));
+
+                if ((((CurrentBoard.BlackPawns & ~Files.BitboardH) >> 7) & enPassant) != 0)
+                    loudPawnMoves.Add(CreateMove(PieceType.Pawn, (Square)CurrentState.EnPassantSquare + 7, (Square)CurrentState.EnPassantSquare, MoveType.EnPassant));
+            }
+
+
+            return loudPawnMoves;
+        }
         public IEnumerable<MoveWrapper> KnightMoves()
         {
             List<MoveWrapper> knightMoves = new();
@@ -325,16 +352,44 @@ namespace Core
                 friendlyPieces = CurrentBoard.BlackPieces;
             }
 
-            foreach (Square from in Bitboards.Squares(knights))
+            foreach (Square from in Bitboards.ToSquares(knights))
             {
-                IEnumerable<Square> potentialSquares = Bitboards.Squares(AttackTables.KnightAttacks[(int)from]);
+                IEnumerable<Square> potentialSquares = Bitboards.ToSquares(AttackTables.KnightAttacks[(int)from]);
                 foreach (Square to in potentialSquares)
-                    if ((Bitboards.FromSquare(to) & friendlyPieces) == 0)
+                    if ((Bitboards.From(to) & friendlyPieces) == 0)
                         knightMoves.Add(CreateMove(PieceType.Knight, from, to));
             }
 
             return knightMoves;
         }
+
+        public IEnumerable<MoveWrapper> KnightCaptures()
+        {
+            List<MoveWrapper> knightCaptures = new();
+            ulong knights;
+            ulong enemyPieces;
+            if (CurrentState.Turn == Color.White)
+            {
+                knights = CurrentBoard.WhiteKnights;
+                enemyPieces = CurrentBoard.BlackPieces;
+            }
+            else
+            {
+                knights = CurrentBoard.BlackKnights;
+                enemyPieces = CurrentBoard.WhitePieces;
+            }
+
+            foreach (Square from in Bitboards.ToSquares(knights))
+            {
+                IEnumerable<Square> potentialSquares = Bitboards.ToSquares(AttackTables.KnightAttacks[(int)from]);
+                foreach (Square to in potentialSquares)
+                    if ((Bitboards.From(to) & enemyPieces) != 0)
+                        knightCaptures.Add(CreateMove(PieceType.Knight, from, to));
+            }
+
+            return knightCaptures;
+        }
+
 
         public IEnumerable<MoveWrapper> BishopMoves()
         {
@@ -352,14 +407,43 @@ namespace Core
                 friendlyPieces = CurrentBoard.BlackPieces;
             }
 
-            foreach (Square from in Bitboards.Squares(bishops))
+            foreach (Square from in Bitboards.ToSquares(bishops))
             {
                 ulong destinations = _magic.GetBishopMoves(from, CurrentBoard.AllPieces, friendlyPieces);
-                foreach (Square to in Bitboards.Squares(destinations))
+                foreach (Square to in Bitboards.ToSquares(destinations))
                     bishopMoves.Add(CreateMove(PieceType.Bishop, from, to));
             }
 
             return bishopMoves;
+        }
+
+        public IEnumerable<MoveWrapper> BishopCaptures()
+        {
+            List<MoveWrapper> bishopCaptures = new();
+            ulong bishops;
+            ulong friendlyPieces;
+            ulong enemyPieces;
+            if (CurrentState.Turn == Color.White)
+            {
+                bishops = CurrentBoard.WhiteBishops;
+                friendlyPieces = CurrentBoard.WhitePieces;
+                enemyPieces = CurrentBoard.BlackPieces;
+            }
+            else
+            {
+                bishops = CurrentBoard.BlackBishops;
+                friendlyPieces = CurrentBoard.BlackPieces;
+                enemyPieces = CurrentBoard.WhitePieces;
+            }
+
+            foreach (Square from in Bitboards.ToSquares(bishops))
+            {
+                ulong destinations = _magic.GetBishopMoves(from, CurrentBoard.AllPieces, friendlyPieces);
+                foreach (Square to in Bitboards.ToSquares(destinations & enemyPieces))
+                    bishopCaptures.Add(CreateMove(PieceType.Bishop, from, to));
+            }
+
+            return bishopCaptures;
         }
 
         public IEnumerable<MoveWrapper> RookMoves()
@@ -378,14 +462,43 @@ namespace Core
                 friendlyPieces = CurrentBoard.BlackPieces;
             }
 
-            foreach (Square from in Bitboards.Squares(rooks))
+            foreach (Square from in Bitboards.ToSquares(rooks))
             {
                 ulong destinations = _magic.GetRookMoves(from, CurrentBoard.AllPieces, friendlyPieces);
-                foreach (Square to in Bitboards.Squares(destinations))
+                foreach (Square to in Bitboards.ToSquares(destinations))
                     rookMoves.Add(CreateMove(PieceType.Rook, from, to));
             }
 
             return rookMoves;
+        }
+
+        public IEnumerable<MoveWrapper> RookCaptures()
+        {
+            List<MoveWrapper> rookCaptures = new();
+            ulong rooks;
+            ulong friendlyPieces;
+            ulong enemyPieces;
+            if (CurrentState.Turn == Color.White)
+            {
+                rooks = CurrentBoard.WhiteRooks;
+                friendlyPieces = CurrentBoard.WhitePieces;
+                enemyPieces = CurrentBoard.BlackPieces;
+            }
+            else
+            {
+                rooks = CurrentBoard.BlackRooks;
+                friendlyPieces = CurrentBoard.BlackPieces;
+                enemyPieces = CurrentBoard.WhitePieces;
+            }
+
+            foreach (Square from in Bitboards.ToSquares(rooks))
+            {
+                ulong destinations = _magic.GetRookMoves(from, CurrentBoard.AllPieces, friendlyPieces);
+                foreach (Square to in Bitboards.ToSquares(destinations & enemyPieces))
+                    rookCaptures.Add(CreateMove(PieceType.Rook, from, to));
+            }
+
+            return rookCaptures;
         }
 
         public IEnumerable<MoveWrapper> QueenMoves()
@@ -404,14 +517,43 @@ namespace Core
                 friendlyPieces = CurrentBoard.BlackPieces;
             }
 
-            foreach (Square from in Bitboards.Squares(queens))
+            foreach (Square from in Bitboards.ToSquares(queens))
             {
                 ulong destinations = _magic.GetRookMoves(from, CurrentBoard.AllPieces, friendlyPieces) | _magic.GetBishopMoves(from, CurrentBoard.AllPieces, friendlyPieces);
-                foreach (Square to in Bitboards.Squares(destinations))
+                foreach (Square to in Bitboards.ToSquares(destinations))
                     queenMoves.Add(CreateMove(PieceType.Queen, from, to));
             }
 
             return queenMoves;
+        }
+
+        public IEnumerable<MoveWrapper> QueenCaptures()
+        {
+            List<MoveWrapper> queenCaptures = new();
+            ulong queens;
+            ulong friendlyPieces;
+            ulong enemyPieces;
+            if (CurrentState.Turn == Color.White)
+            {
+                queens = CurrentBoard.WhiteQueens;
+                friendlyPieces = CurrentBoard.WhitePieces;
+                enemyPieces = CurrentBoard.BlackPieces;
+            }
+            else
+            {
+                queens = CurrentBoard.BlackQueens;
+                friendlyPieces = CurrentBoard.BlackPieces;
+                enemyPieces = CurrentBoard.WhitePieces;
+            }
+
+            foreach (Square from in Bitboards.ToSquares(queens))
+            {
+                ulong destinations = _magic.GetRookMoves(from, CurrentBoard.AllPieces, friendlyPieces) | _magic.GetBishopMoves(from, CurrentBoard.AllPieces, friendlyPieces);
+                foreach (Square to in Bitboards.ToSquares(destinations & enemyPieces))
+                    queenCaptures.Add(CreateMove(PieceType.Queen, from, to));
+            }
+
+            return queenCaptures;
         }
 
         public IEnumerable<MoveWrapper> KingMoves()
@@ -430,15 +572,42 @@ namespace Core
                 friendlyPieces = CurrentBoard.BlackPieces;
             }
 
-            Square kingSquare = (Square)Bitboards.LSB(king);
-            IEnumerable<Square> potentialSquares = Bitboards.Squares(AttackTables.KingAttacks[(int)kingSquare]);
+            Square kingSquare = Bitboards.LSB(king);
+            IEnumerable<Square> potentialSquares = Bitboards.ToSquares(AttackTables.KingAttacks[(int)kingSquare]);
             foreach (Square to in potentialSquares)
-                if ((Bitboards.FromSquare(to) & friendlyPieces) == 0)
+                if ((Bitboards.From(to) & friendlyPieces) == 0)
                     kingMoves.Add(CreateMove(PieceType.King, kingSquare, to));
 
             kingMoves.AddRange(CastlingMoves());
 
             return kingMoves;
+        }
+
+        public IEnumerable<MoveWrapper> KingCaptures()
+        {
+            List<MoveWrapper> kingCaptures = new();
+            ulong king;
+            ulong enemyPieces;
+            if (CurrentState.Turn == Color.White)
+            {
+                king = CurrentBoard.WhiteKing;
+                enemyPieces = CurrentBoard.BlackPieces;
+            }
+            else
+            {
+                king = CurrentBoard.BlackKing;
+                enemyPieces = CurrentBoard.WhitePieces;
+            }
+
+            Square kingSquare = Bitboards.LSB(king);
+            IEnumerable<Square> potentialSquares = Bitboards.ToSquares(AttackTables.KingAttacks[(int)kingSquare]);
+            foreach (Square to in potentialSquares)
+                if ((Bitboards.From(to) & enemyPieces) != 0)
+                    kingCaptures.Add(CreateMove(PieceType.King, kingSquare, to));
+
+            kingCaptures.AddRange(CastlingMoves());
+
+            return kingCaptures;
         }
 
         private IEnumerable<MoveWrapper> CastlingMoves()
@@ -448,21 +617,74 @@ namespace Core
             if (CurrentState.Turn == Color.White)
             {
                 if (CurrentState.CastlingRights.HasFlag(CastlingRights.WhiteKingSide) && (CurrentBoard.AllPieces & 0x60UL) == 0)
-                    castlingMoves.Add(CreateMove(PieceType.King, Square.E1, Square.H1, MoveType.Castling));
+                    castlingMoves.Add(CreateMove(PieceType.King, Square.E1, Square.G1, MoveType.Castling));
 
                 if (CurrentState.CastlingRights.HasFlag(CastlingRights.WhiteQueenSide) && (CurrentBoard.AllPieces & 0xEUL) == 0)
-                    castlingMoves.Add(CreateMove(PieceType.King, Square.E1, Square.A1, MoveType.Castling));
+                    castlingMoves.Add(CreateMove(PieceType.King, Square.E1, Square.C1, MoveType.Castling));
             }
             else
             {
                 if (CurrentState.CastlingRights.HasFlag(CastlingRights.BlackKingSide) && (CurrentBoard.AllPieces & 0x6000000000000000UL) == 0)
-                    castlingMoves.Add(CreateMove(PieceType.King, Square.E8, Square.H8, MoveType.Castling));
+                    castlingMoves.Add(CreateMove(PieceType.King, Square.E8, Square.G8, MoveType.Castling));
 
                 if (CurrentState.CastlingRights.HasFlag(CastlingRights.BlackQueenSide) && (CurrentBoard.AllPieces & 0xE00000000000000UL) == 0)
-                    castlingMoves.Add(CreateMove(PieceType.King, Square.E8, Square.H8, MoveType.Castling));
+                    castlingMoves.Add(CreateMove(PieceType.King, Square.E8, Square.C8, MoveType.Castling));
             }
 
             return castlingMoves;
+        }
+
+        public bool KingInCheck(Color kingColor)
+        {
+            return kingColor == Color.White ? AttackedByBlack(Bitboards.LSB(CurrentBoard.WhiteKing)) : AttackedByWhite(Bitboards.LSB(CurrentBoard.BlackKing));
+        }
+
+        public bool KingInCheck()
+        {
+            return CurrentState.Turn == Color.White ? AttackedByWhite(Bitboards.LSB(CurrentBoard.BlackKing)) : AttackedByBlack(Bitboards.LSB(CurrentBoard.WhiteKing));
+        }
+
+        public bool CastlingThroughCheck(MoveWrapper move)
+        {
+            File file = File.E;
+            Rank rank = Ranks.Of(move.Move.From());
+            File fileTo = Files.Of(move.Move.To());
+
+            int dx = fileTo == File.G ? 1 : -1;
+            while (file != fileTo)
+            {
+                if (CurrentState.Turn == Color.White ? AttackedByWhite(Squares.Of(file, rank)) : AttackedByBlack(Squares.Of(file, rank)))
+                    return true;
+
+                file += dx;
+            }
+            return CurrentState.Turn == Color.White ? AttackedByWhite(Squares.Of(file, rank)) : AttackedByBlack(Squares.Of(file, rank));
+        }
+
+        public bool AttackedByBlack(Square square)
+        {
+            if ((AttackTables.KnightAttacks[(int)square] & CurrentBoard.BlackKnights) != 0) return true;
+            if ((AttackTables.KingAttacks[(int)square] & CurrentBoard.BlackKing) != 0) return true;
+            if ((_magic.GetBishopMoves(square, CurrentBoard.AllPieces, CurrentBoard.WhitePieces) & (CurrentBoard.BlackBishops | CurrentBoard.BlackQueens)) != 0) return true;
+            if ((_magic.GetRookMoves(square, CurrentBoard.AllPieces, CurrentBoard.WhitePieces) & (CurrentBoard.BlackRooks | CurrentBoard.BlackQueens)) != 0) return true;
+            if (((((CurrentBoard.BlackPawns & ~Files.BitboardH) >> 7) | ((CurrentBoard.BlackPawns & ~Files.BitboardA) >> 9)) & Bitboards.From(square)) != 0) return true;
+            return false;
+        }
+
+        public bool AttackedByWhite(Square square)
+        {
+            if ((AttackTables.KnightAttacks[(int)square] & CurrentBoard.WhiteKnights) != 0) return true;
+            if ((AttackTables.KingAttacks[(int)square] & CurrentBoard.WhiteKing) != 0) return true;
+            if ((_magic.GetBishopMoves(square, CurrentBoard.AllPieces, CurrentBoard.BlackPieces) & (CurrentBoard.WhiteBishops | CurrentBoard.WhiteQueens)) != 0) return true;
+            if ((_magic.GetRookMoves(square, CurrentBoard.AllPieces, CurrentBoard.BlackPieces) & (CurrentBoard.WhiteRooks | CurrentBoard.WhiteQueens)) != 0) return true;
+            if (((((CurrentBoard.WhitePawns & ~Files.BitboardA) << 7) | ((CurrentBoard.WhitePawns & ~Files.BitboardH) << 9)) & Bitboards.From(square)) != 0) return true;
+            return false;
+        }
+
+        public bool IsInCheck(MoveWrapper move)
+        {
+            if (move.Move.IsCastling()) return CastlingThroughCheck(move);
+            else return KingInCheck();
         }
 
         private static Board ParseBoardLayout(string layout)
@@ -485,7 +707,7 @@ namespace Core
                     else
                     {
                         Square square = Squares.Of(file, rank);
-                        ulong bit = Bitboards.FromSquare(square);
+                        ulong bit = Bitboards.From(square);
 
                         switch (piece)
                         {
@@ -528,6 +750,7 @@ namespace Core
         {
             return new State(
                 previous: null,
+                previousKey: null,
                 turn: parts[1] == "w" ? Color.White : Color.Black,
                 castlingRights: ParseCastlingRights(parts[2]),
                 enPassantSquare: ParseEnPassantSquare(parts[3]),

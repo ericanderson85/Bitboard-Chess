@@ -75,18 +75,23 @@ namespace Core
 
         private void Castle(Move move, Color turn)
         {
-            // move.To() is the rook position, move.From() is the king position
-            ref ulong king = ref (turn == Color.White ? ref WhiteKing : ref BlackKing);
-            ref ulong rooks = ref (turn == Color.White ? ref WhiteRooks : ref BlackRooks);
-            RemovePiece(ref king, move.From());  // Remove king
-            RemovePiece(ref rooks, move.To());  // Remove rook
+            File oldRookFile = Files.Of(move.To()) == File.C ? File.A : File.H;
+            File newRookFile = Files.Of(move.To()) == File.C ? File.D : File.F;
 
-            Rank rank = Ranks.Of(move.From());
-            File kingFile = Files.Of(move.To()) == File.A ? File.C : File.G;
-            File rookFile = Files.Of(move.To()) == File.A ? File.D : File.F;
-
-            AddPiece(ref king, turn, Squares.Of(kingFile, rank));  // Add king to new position
-            AddPiece(ref rooks, turn, Squares.Of(rookFile, rank));  // Add rook to new position
+            if (turn == Color.White)
+            {
+                RemovePiece(ref WhiteKing, move.From());
+                RemovePiece(ref WhiteRooks, Squares.Of(oldRookFile, Rank.One));
+                AddPiece(ref WhiteKing, turn, move.To());
+                AddPiece(ref WhiteRooks, turn, Squares.Of(newRookFile, Rank.One));
+            }
+            else
+            {
+                RemovePiece(ref BlackKing, move.From());
+                RemovePiece(ref BlackRooks, Squares.Of(oldRookFile, Rank.Eight));
+                AddPiece(ref BlackKing, turn, move.To());
+                AddPiece(ref BlackRooks, turn, Squares.Of(newRookFile, Rank.Eight));
+            }
         }
 
         private void EnPassant(Move move, Color turn)
@@ -94,13 +99,13 @@ namespace Core
             if (turn == Color.White)
             {
                 RemovePiece(ref WhitePawns, move.From());
-                RemovePiece(ref BlackPawns, move.To() + 8);
+                RemovePiece(ref BlackPawns, move.To() - 8);
                 AddPiece(ref WhitePawns, turn, move.To());
             }
             else
             {
                 RemovePiece(ref BlackPawns, move.From());
-                RemovePiece(ref WhitePawns, move.To() - 8);
+                RemovePiece(ref WhitePawns, move.To() + 8);
                 AddPiece(ref BlackPawns, turn, move.To());
             }
         }
@@ -163,20 +168,22 @@ namespace Core
 
         private void UndoCastle(Move move, Color turn)
         {
-            // move.To() is the rook position, move.From() is the king position
-            File rookFile = Files.Of(move.To()) == File.A ? File.D : File.F;
+            File oldRookFile = Files.Of(move.To()) == File.C ? File.D : File.F;
+            File newRookFile = Files.Of(move.To()) == File.C ? File.A : File.H;
 
             if (turn == Color.White)
             {
-                WhiteKing = 0x0000000000000010UL;
-                RemovePiece(ref WhiteRooks, Squares.Of(rookFile, Rank.One));
-                AddPiece(ref WhiteRooks, turn, move.To());
+                RemovePiece(ref WhiteKing, move.To());
+                RemovePiece(ref WhiteRooks, Squares.Of(oldRookFile, Rank.One));
+                AddPiece(ref WhiteKing, turn, move.From());
+                AddPiece(ref WhiteRooks, turn, Squares.Of(newRookFile, Rank.One));
             }
             else
             {
-                BlackKing = 0x1000000000000000UL;
-                RemovePiece(ref BlackRooks, Squares.Of(rookFile, Rank.Eight));
-                AddPiece(ref BlackRooks, turn, move.To());
+                RemovePiece(ref BlackKing, move.To());
+                RemovePiece(ref BlackRooks, Squares.Of(oldRookFile, Rank.Eight));
+                AddPiece(ref BlackKing, turn, move.From());
+                AddPiece(ref BlackRooks, turn, Squares.Of(newRookFile, Rank.Eight));
             }
         }
 
@@ -186,13 +193,13 @@ namespace Core
             {
                 RemovePiece(ref WhitePawns, move.To());
                 AddPiece(ref WhitePawns, turn, move.From());
-                AddPiece(ref BlackPawns, turn ^ Color.Black, move.To() + 8);
+                AddPiece(ref BlackPawns, turn ^ Color.Black, move.To() - 8);
             }
             else
             {
                 RemovePiece(ref BlackPawns, move.To());
                 AddPiece(ref BlackPawns, turn, move.From());
-                AddPiece(ref WhitePawns, turn ^ Color.Black, move.To() - 8);
+                AddPiece(ref WhitePawns, turn ^ Color.Black, move.To() + 8);
             }
         }
 
@@ -212,7 +219,7 @@ namespace Core
         }
         private void RemovePiece(ref ulong pieces, Square square)
         {
-            ulong squareBitboard = Bitboards.FromSquare(square);
+            ulong squareBitboard = Bitboards.From(square);
             pieces &= ~squareBitboard;
             WhitePieces &= ~squareBitboard;
             BlackPieces &= ~squareBitboard;
@@ -221,7 +228,7 @@ namespace Core
 
         private void AddPiece(ref ulong pieces, Color turn, Square square)
         {
-            ulong squareBitboard = Bitboards.FromSquare(square);
+            ulong squareBitboard = Bitboards.From(square);
             pieces |= squareBitboard;
             if (turn == Color.White) WhitePieces |= squareBitboard;
             else BlackPieces |= squareBitboard;
@@ -230,7 +237,7 @@ namespace Core
 
         public PieceType TypeAtSquare(Square square)
         {
-            ulong bitboardSquare = Bitboards.FromSquare(square);
+            ulong bitboardSquare = Bitboards.From(square);
             if ((bitboardSquare & AllPieces) == 0)
                 return PieceType.None;
             if ((bitboardSquare & (WhitePawns | BlackPawns)) != 0)
@@ -243,7 +250,7 @@ namespace Core
                 return PieceType.Rook;
             if ((bitboardSquare & (WhiteQueens | BlackQueens)) != 0)
                 return PieceType.Queen;
-            return PieceType.None;
+            return PieceType.King;
         }
 
         public override string ToString()
@@ -254,7 +261,7 @@ namespace Core
             {
                 for (File file = File.A; file <= File.H; file++)
                 {
-                    ulong mask = Bitboards.FromSquare(file, rank);
+                    ulong mask = Bitboards.From(file, rank);
                     piece = ' ';
                     if ((WhitePawns & mask) != 0) piece = 'P';
                     else if ((WhiteKnights & mask) != 0) piece = 'N';
