@@ -80,7 +80,7 @@ namespace UCI
                     break;
 
                 case "turn":
-                    Console.WriteLine(_position.CurrentState.Turn);
+                    Console.WriteLine(_position.State.Turn);
                     break;
 
                 case "quit":
@@ -109,7 +109,7 @@ namespace UCI
                             var moves = parts.Skip(movesIndex + 1);
                             foreach (string move in moves)
                             {
-                                _position.PerformMove(_position.CreateMove(move));
+                                _position.PerformMove(MoveGenerator.CreateMove(_position, move));
                             }
                         }
                         break;
@@ -119,7 +119,7 @@ namespace UCI
 
                         if (parts.Length > 2 && parts[2].ToLower() == "moves")
                             foreach (var move in parts.Skip(3))
-                                _position.PerformMove(_position.CreateMove(move));
+                                _position.PerformMove(MoveGenerator.CreateMove(_position, move));
 
                         break;
 

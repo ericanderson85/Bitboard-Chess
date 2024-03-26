@@ -33,6 +33,54 @@ namespace Core
             }
         }
 
+        public bool AttackedByWhite(Square square)
+        {
+            if ((AttackTables.KnightAttacks[(int)square] & WhiteKnights) != 0) return true;
+            if ((AttackTables.KingAttacks[(int)square] & WhiteKing) != 0) return true;
+            if ((Magic.GetBishopMoves(square, AllPieces, BlackPieces) & (WhiteBishops | WhiteQueens)) != 0) return true;
+            if ((Magic.GetRookMoves(square, AllPieces, BlackPieces) & (WhiteRooks | WhiteQueens)) != 0) return true;
+            if (((((WhitePawns & ~Files.BitboardA) << 7) | ((WhitePawns & ~Files.BitboardH) << 9)) & Bitboards.From(square)) != 0) return true;
+            return false;
+        }
+
+        public bool AttackedByBlack(Square square)
+        {
+            if ((AttackTables.KnightAttacks[(int)square] & BlackKnights) != 0) return true;
+            if ((AttackTables.KingAttacks[(int)square] & BlackKing) != 0) return true;
+            if ((Magic.GetBishopMoves(square, AllPieces, WhitePieces) & (BlackBishops | BlackQueens)) != 0) return true;
+            if ((Magic.GetRookMoves(square, AllPieces, WhitePieces) & (BlackRooks | BlackQueens)) != 0) return true;
+            if (((((BlackPawns & ~Files.BitboardH) >> 7) | ((BlackPawns & ~Files.BitboardA) >> 9)) & Bitboards.From(square)) != 0) return true;
+            return false;
+        }
+
+        public bool PutsKingInCheck(Color turn, MoveWrapper move)
+        {
+            if (move.Move.IsCastling()) return CastlingThroughCheck(turn, move);
+            else return KingInCheck(turn ^ Color.Black);
+        }
+
+        public bool CastlingThroughCheck(Color turn, MoveWrapper move)
+        {
+            File file = File.E;
+            Rank rank = Ranks.Of(move.Move.From());
+            File fileTo = Files.Of(move.Move.To());
+
+            int dx = fileTo == File.G ? 1 : -1;
+            while (file != fileTo)
+            {
+                if (turn == Color.White ? AttackedByWhite(Squares.Of(file, rank)) : AttackedByBlack(Squares.Of(file, rank)))
+                    return true;
+
+                file += dx;
+            }
+            return turn == Color.White ? AttackedByWhite(Squares.Of(file, rank)) : AttackedByBlack(Squares.Of(file, rank));
+        }
+
+        public bool KingInCheck(Color kingColor)
+        {
+            return kingColor == Color.White ? AttackedByBlack(Bitboards.LSB(WhiteKing)) : AttackedByWhite(Bitboards.LSB(BlackKing));
+        }
+
         public void Move(Move move, PieceType pieceType, PieceType enemyPieceType, Color turn)
         {
             if (move.TypeOfMove() == MoveType.Normal)
@@ -217,6 +265,7 @@ namespace Core
                 AddPiece(ref Pieces(enemyPieceType, turn ^ Color.Black), turn ^ Color.Black, move.To());
             }
         }
+
         private void RemovePiece(ref ulong pieces, Square square)
         {
             ulong squareBitboard = Bitboards.From(square);

@@ -8,7 +8,7 @@ namespace Search
 
         public static MoveWrapper FindBestMove(Position P, int depth)
         {
-            bool whiteToMove = P.CurrentState.Turn == Color.White;
+            bool whiteToMove = P.State.Turn == Color.White;
             int bestValue = whiteToMove ? int.MinValue : int.MaxValue;
             var moves = P.AllMoves();
 
@@ -22,7 +22,7 @@ namespace Search
             foreach (var move in moves)
             {
                 P.PerformMove(move);
-                if (P.IsInCheck(move))
+                if (P.Board.PutsKingInCheck(P.State.Turn, move))
                 {
                     P.UndoMove(move);
                     continue;
@@ -80,7 +80,7 @@ namespace Search
             }
 
             int alphaOriginal = alpha;
-            bool whiteToMove = P.CurrentState.Turn == Color.White;
+            bool whiteToMove = P.State.Turn == Color.White;
             int bestScore = whiteToMove ? int.MinValue : int.MaxValue;
             var moves = P.AllMoves();
 
@@ -89,7 +89,7 @@ namespace Search
             foreach (var move in moves)
             {
                 P.PerformMove(move);
-                if (P.IsInCheck(move))
+                if (P.Board.PutsKingInCheck(P.State.Turn, move))
                 {
                     P.UndoMove(move);
                     continue;
@@ -122,7 +122,7 @@ namespace Search
 
         private static int QuietSearch(Position P, int alpha, int beta)
         {
-            bool whiteToMove = P.CurrentState.Turn == Color.White;
+            bool whiteToMove = P.State.Turn == Color.White;
             int bestScore = whiteToMove ? int.MinValue : int.MaxValue;
             var loudMoves = P.LoudMoves();
 
@@ -131,7 +131,7 @@ namespace Search
             foreach (var move in loudMoves)
             {
                 P.PerformMove(move);
-                if (P.IsInCheck(move))
+                if (P.Board.PutsKingInCheck(P.State.Turn, move))
                 {
                     P.UndoMove(move);
                     continue;

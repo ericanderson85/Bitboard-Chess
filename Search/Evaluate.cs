@@ -76,7 +76,7 @@ namespace Search
 
         public static int Evaluation(Position position)
         {
-            Board board = position.CurrentBoard;
+            Board board = position.Board;
             int evaluation = 0;
             evaluation += EvaluatePiece(board.WhitePawns, PAWN_VALUE, PAWN_TABLE, true) - EvaluatePiece(board.BlackPawns, PAWN_VALUE, PAWN_TABLE, false);
             evaluation += EvaluatePiece(board.WhiteKnights, KNIGHT_VALUE, KNIGHT_TABLE, true) - EvaluatePiece(board.BlackKnights, KNIGHT_VALUE, KNIGHT_TABLE, false);
@@ -86,7 +86,7 @@ namespace Search
 
             evaluation += EvaluateKingSafety(board, true) - EvaluateKingSafety(board, false);
 
-            evaluation += CastlingRightsEvaluation(position.CurrentState.CastlingRights);
+            evaluation += CastlingRightsEvaluation(position.State.CastlingRights);
 
             return evaluation;
         }

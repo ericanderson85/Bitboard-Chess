@@ -87,4 +87,35 @@ namespace Core
             return move.ToLower();
         }
     }
+
+    public readonly struct MoveWrapper
+    {
+        public readonly Move Move;
+        public readonly PieceType PieceType;
+        public readonly PieceType EnemyPieceType;
+        public readonly Square? EnPassantSquare;
+
+        public MoveWrapper(Move move, PieceType pieceType, PieceType enemyPieceType = PieceType.None, Square? enPassantSquare = null)
+        {
+            Move = move;
+            PieceType = pieceType;
+            EnemyPieceType = enemyPieceType;
+            EnPassantSquare = enPassantSquare;
+        }
+
+        public override string ToString()
+        {
+            string destination = Move.ToString();
+            string promotion = Move.PromotionPieceType() switch
+            {
+                PieceType.Queen => "q",
+                PieceType.Rook => "r",
+                PieceType.Bishop => "b",
+                PieceType.Knight => "n",
+                _ => "",
+            };
+
+            return $"{destination}{promotion}";
+        }
+    }
 }

@@ -14,7 +14,7 @@ namespace Search
             {
                 position.PerformMove(move);
 
-                if (!position.IsInCheck(move))
+                if (!position.Board.PutsKingInCheck(position.State.Turn, move))
                     moveCounts.Add((move, RunPerft(position, depth - 1)));
 
                 position.UndoMove(move);
@@ -41,7 +41,7 @@ namespace Search
             {
                 position.PerformMove(move);
 
-                if (!position.IsInCheck(move))
+                if (!position.Board.PutsKingInCheck(position.State.Turn, move))
                     numPositions += RunPerft(position, depth - 1);
 
                 position.UndoMove(move);
