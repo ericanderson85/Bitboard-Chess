@@ -76,7 +76,7 @@ namespace Search
 
             if (depth == 0)
             {
-                return Evaluate.Evaluation(P);
+                return QuietSearch(P, alpha, beta, 3);
             }
 
             int alphaOriginal = alpha;
@@ -120,9 +120,27 @@ namespace Search
             return bestScore;
         }
 
-        private static int QuietSearch(Position P, int alpha, int beta)
+        private static int QuietSearch(Position P, int alpha, int beta, int depth)
         {
+            int standPat = Evaluate.Evaluation(P);
+
+            if (depth == 0)
+            {
+                return standPat;
+            }
             bool whiteToMove = P.State.Turn == Color.White;
+
+            if (whiteToMove)
+            {
+                if (standPat >= beta) return beta;
+                alpha = int.Max(alpha, standPat);
+            }
+            else
+            {
+                if (standPat <= alpha) return alpha;
+                beta = int.Min(beta, standPat);
+            }
+
             int bestScore = whiteToMove ? int.MinValue : int.MaxValue;
             var loudMoves = P.LoudMoves();
 
@@ -136,7 +154,7 @@ namespace Search
                     P.UndoMove(move);
                     continue;
                 }
-                int score = QuietSearch(P, alpha, beta);
+                int score = QuietSearch(P, alpha, beta, depth - 1);
                 P.UndoMove(move);
 
                 if (whiteToMove)
