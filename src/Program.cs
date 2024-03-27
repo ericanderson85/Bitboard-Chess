@@ -5,10 +5,9 @@
 
 // public static class Program
 // {
-//     static readonly Position P = new();
-
 //     public static void Main(string[] args)
 //     {
-
+//         while (true)
+//             Console.WriteLine(Evaluate.Evaluation(new Position(Console.ReadLine())));
 //     }
 // }

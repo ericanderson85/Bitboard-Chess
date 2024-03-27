@@ -11,7 +11,7 @@ namespace Core
     };
 
     /*
-    Move represented as a 16-bit integer.
+    Move represented as a 16-bit unsigned integer.
     Bits 0 - 5 : Destination square
     Bits 6-11 : Origin square
     Bits 12-13 : Promotion piece type
@@ -20,12 +20,53 @@ namespace Core
     public class Move
     {
         private readonly ushort _data;
-        public Move(Square from, Square to, MoveType moveType = MoveType.Normal, PieceType promotionPiece = PieceType.None)
+        public Move(Square from, Square to, MoveType moveType = MoveType.Normal, PieceType promotionPieceType = PieceType.None)
         {
             if (moveType == MoveType.Promotion)
             {
                 // 2 subtracted from promotionPiece to fit inside the short (pieces valid for promotion enumerated starting at 2)
-                _data = (ushort)((int)moveType | ((int)promotionPiece - 2) << 12 | ((int)from << 6) | (int)to);
+                _data = (ushort)((int)moveType | ((int)promotionPieceType - 2) << 12 | ((int)from << 6) | (int)to);
+            }
+            else
+            {
+                _data = (ushort)((int)moveType | (int)from << 6 | (int)to);
+            }
+        }
+
+        public Move(Position position, string uciMove)
+        {
+            Square from = Squares.FromString(uciMove[..2]);
+            Square to = Squares.FromString(uciMove.Substring(2, 2));
+            PieceType pieceType = position.Board.TypeAtSquare(from);
+            MoveType moveType = MoveType.Normal;
+            PieceType promotionPieceType = PieceType.None;
+
+
+            if (pieceType == PieceType.King && int.Abs(Files.Of(from) - Files.Of(to)) == 2)
+                moveType = MoveType.Castling;
+            else if (pieceType == PieceType.Pawn)
+            {
+                if (uciMove.Length > 4)
+                {
+                    char promotionChar = uciMove[4];
+                    promotionPieceType = promotionChar switch
+                    {
+                        'q' => PieceType.Queen,
+                        'r' => PieceType.Rook,
+                        'b' => PieceType.Bishop,
+                        'n' => PieceType.Knight,
+                        _ => PieceType.None,
+                    };
+                    moveType = MoveType.Promotion;
+                }
+                else if (position.State.EnPassantSquare == to) moveType = MoveType.EnPassant;
+            }
+
+
+            if (moveType == MoveType.Promotion)
+            {
+                // 2 subtracted from promotionPiece to fit inside the short (pieces valid for promotion enumerated starting at 2)
+                _data = (ushort)((int)moveType | ((int)promotionPieceType - 2) << 12 | ((int)from << 6) | (int)to);
             }
             else
             {
@@ -85,37 +126,6 @@ namespace Core
         {
             string move = From().ToString() + To().ToString();
             return move.ToLower();
-        }
-    }
-
-    public readonly struct MoveWrapper
-    {
-        public readonly Move Move;
-        public readonly PieceType PieceType;
-        public readonly PieceType EnemyPieceType;
-        public readonly Square? EnPassantSquare;
-
-        public MoveWrapper(Move move, PieceType pieceType, PieceType enemyPieceType = PieceType.None, Square? enPassantSquare = null)
-        {
-            Move = move;
-            PieceType = pieceType;
-            EnemyPieceType = enemyPieceType;
-            EnPassantSquare = enPassantSquare;
-        }
-
-        public override string ToString()
-        {
-            string destination = Move.ToString();
-            string promotion = Move.PromotionPieceType() switch
-            {
-                PieceType.Queen => "q",
-                PieceType.Rook => "r",
-                PieceType.Bishop => "b",
-                PieceType.Knight => "n",
-                _ => "",
-            };
-
-            return $"{destination}{promotion}";
         }
     }
 }

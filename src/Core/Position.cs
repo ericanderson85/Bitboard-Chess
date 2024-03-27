@@ -48,7 +48,34 @@ namespace Core
             ZobristKey = Zobrist.CalculateHash(Board, State);
         }
 
+        public void PerformMove(MoveWrapper move)
+        {
+            Board.Move(move.Move, move.PieceType, move.EnemyPieceType, State.Turn);
+            State prevState = State;
+            State = NewState(move);
+            Zobrist.UpdateHash(ref ZobristKey, move, prevState, State);
+            // ulong h = Zobrist.CalculateHash(CurrentBoard, CurrentState);
+            // if (h != ZobristKey)
+            // {
+            //     Console.WriteLine(move);
+            //     Console.WriteLine($"{h} != {ZobristKey}");
+            //     if (move.EnemyPieceType != PieceType.None) Console.WriteLine($"{move.PieceType} captures {move.EnemyPieceType}");
+            //     else Console.WriteLine("\nNO CAPTURE\n");
+            //     Console.WriteLine(this);
+            //     Console.WriteLine("\n");
+            // }
 
+        }
+
+        public void UndoMove(MoveWrapper move)
+        {
+            if (State.Previous == null || State.PreviousKey == null)
+                throw new Exception("Can't undo move");
+
+            ZobristKey = (ulong)State.PreviousKey;
+            State = State.Previous;
+            Board.UndoMove(move.Move, move.PieceType, move.EnemyPieceType, State.Turn);
+        }
 
         private State NewState(MoveWrapper move)
         {
@@ -93,48 +120,24 @@ namespace Core
                 castlingRights: castlingRights,
                 enPassantSquare: move.EnPassantSquare,
                 halfMoveClock: resetClock ? 0 : State.HalfMoveClock + 1,
-                moveCount: State.MoveCount + (int)State.Turn
+                moveCount: State.FullMoveCount + (int)State.Turn
             );
 
         }
 
-        public void PerformMove(MoveWrapper move)
+        public string ToFEN()
         {
-            Board.Move(move.Move, move.PieceType, move.EnemyPieceType, State.Turn);
-            State prevState = State;
-            State = NewState(move);
-            Zobrist.UpdateHash(ref ZobristKey, move, prevState, State);
-            // ulong h = Zobrist.CalculateHash(CurrentBoard, CurrentState);
-            // if (h != ZobristKey)
-            // {
-            //     Console.WriteLine(move);
-            //     Console.WriteLine($"{h} != {ZobristKey}");
-            //     if (move.EnemyPieceType != PieceType.None) Console.WriteLine($"{move.PieceType} captures {move.EnemyPieceType}");
-            //     else Console.WriteLine("\nNO CAPTURE\n");
-            //     Console.WriteLine(this);
-            //     Console.WriteLine("\n");
-            // }
-
-        }
-
-        public void UndoMove(MoveWrapper move)
-        {
-            if (State.Previous == null || State.PreviousKey == null)
-                throw new Exception("Can't undo move");
-
-            ZobristKey = (ulong)State.PreviousKey;
-            State = State.Previous;
-            Board.UndoMove(move.Move, move.PieceType, move.EnemyPieceType, State.Turn);
+            return Board.BoardFEN().Append(State.StateFEN()).ToString();
         }
 
         public List<MoveWrapper> AllMoves()
         {
-            return MoveGenerator.AllMoves(this);
+            return PseudoLegalMoveGenerator.AllMoves(this);
         }
 
         public List<MoveWrapper> LoudMoves()
         {
-            return MoveGenerator.LoudMoves(this);
+            return PseudoLegalMoveGenerator.LoudMoves(this);
         }
 
         private static Board ParseBoardLayout(string layout)
@@ -227,7 +230,7 @@ namespace Core
 
         public override string ToString()
         {
-            return Board.ToString();
+            return Board.ToString() + "\n" + ToFEN();
         }
     }
 }

@@ -12,7 +12,7 @@ namespace Search
     {
 
         private const int ENTRY_SIZE = 24;
-        private const int HASH_MEMORY_MEGABYTES = 1000;
+        private const int HASH_MEMORY_MEGABYTES = 1000;  // 1 GB
         private const int TABLE_SIZE = HASH_MEMORY_MEGABYTES * 1024 * 1024 / ENTRY_SIZE;
         private static readonly TranspositionEntry[] _table = new TranspositionEntry[TABLE_SIZE];
 
@@ -40,7 +40,7 @@ namespace Search
             int index = GetIndex(hash);
             TranspositionEntry existingEntry = _table[index];
 
-            if (existingEntry.Depth <= depth)
+            if (depth >= existingEntry.Depth)
             {
                 _table[index].Hash = hash;
                 _table[index].Depth = depth;
@@ -49,11 +49,12 @@ namespace Search
             }
         }
 
-        public static bool TryGet(ulong hash, int depth, out int evaluation, out Bounds bound)
+        public static bool TryGet(ulong hash, int movesRemaining, out int evaluation, out Bounds bound)
         {
             int index = GetIndex(hash);
 
-            bool success = _table[index].Hash == hash && _table[index].Depth >= depth;
+            // Higher movesRemaining at storage means the stored evaluation is deeper
+            bool success = _table[index].Hash == hash && _table[index].Depth >= movesRemaining;
 
             evaluation = success ? _table[index].Evaluation : 0;
             bound = success ? _table[index].Bound : 0;

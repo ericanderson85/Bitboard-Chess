@@ -19,7 +19,7 @@ namespace Search
 
         public static void Clear()
         {
-            Array.Clear(_table, 0, TABLE_SIZE);
+            Array.Clear(_table);
         }
 
         private static int GetIndex(ulong hash)

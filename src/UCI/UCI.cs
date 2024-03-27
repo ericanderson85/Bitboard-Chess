@@ -71,6 +71,12 @@ namespace UCI
                     HandleGo(command);
                     break;
 
+                case "clear":
+                    TranspositionTable.Clear();
+                    MoveOrderer.Clear();
+                    PerftTranspositionTable.Clear();
+                    break;
+
                 case "d":
                     Console.WriteLine(_position);
                     break;
@@ -109,7 +115,7 @@ namespace UCI
                             var moves = parts.Skip(movesIndex + 1);
                             foreach (string move in moves)
                             {
-                                _position.PerformMove(MoveGenerator.CreateMove(_position, move));
+                                _position.PerformMove(MoveWrapper.CreateMove(_position, move));
                             }
                         }
                         break;
@@ -119,7 +125,7 @@ namespace UCI
 
                         if (parts.Length > 2 && parts[2].ToLower() == "moves")
                             foreach (var move in parts.Skip(3))
-                                _position.PerformMove(MoveGenerator.CreateMove(_position, move));
+                                _position.PerformMove(MoveWrapper.CreateMove(_position, move));
 
                         break;
 
@@ -128,6 +134,9 @@ namespace UCI
                         break;
                 }
             }
+
+            Searcher.Clear();
+            Perft.Clear();
         }
 
 
@@ -176,7 +185,7 @@ namespace UCI
             }
             else
             {
-                var move = Searcher.FindBestMove(_position, depth);
+                var move = Searcher.StartSearch(_position, depth);
                 Console.WriteLine("bestmove " + move);
                 _position.PerformMove(move);
             }

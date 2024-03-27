@@ -1,3 +1,4 @@
+using System.Text;
 using Types;
 using File = Types.File;
 
@@ -53,10 +54,10 @@ namespace Core
             return false;
         }
 
-        public bool PutsKingInCheck(Color turn, MoveWrapper move)
+        public bool MovePutsKingInCheck(Color turn, MoveWrapper move)
         {
             if (move.Move.IsCastling()) return CastlingThroughCheck(turn, move);
-            else return KingInCheck(turn ^ Color.Black);
+            else return KingInCheck(turn);
         }
 
         public bool CastlingThroughCheck(Color turn, MoveWrapper move)
@@ -68,12 +69,12 @@ namespace Core
             int dx = fileTo == File.G ? 1 : -1;
             while (file != fileTo)
             {
-                if (turn == Color.White ? AttackedByWhite(Squares.Of(file, rank)) : AttackedByBlack(Squares.Of(file, rank)))
+                if (turn == Color.White ? AttackedByBlack(Squares.Of(file, rank)) : AttackedByWhite(Squares.Of(file, rank)))
                     return true;
 
                 file += dx;
             }
-            return turn == Color.White ? AttackedByWhite(Squares.Of(file, rank)) : AttackedByBlack(Squares.Of(file, rank));
+            return turn == Color.White ? AttackedByBlack(Squares.Of(file, rank)) : AttackedByWhite(Squares.Of(file, rank));
         }
 
         public bool KingInCheck(Color kingColor)
@@ -302,6 +303,56 @@ namespace Core
             return PieceType.King;
         }
 
+        public StringBuilder BoardFEN()
+        {
+            StringBuilder fen = new();
+            for (Rank rank = Rank.Eight; rank >= Rank.One; rank--)
+            {
+                int adjacentEmptySquares = 0;
+                for (File file = File.A; file <= File.H; file++)
+                {
+                    Square square = Squares.Of(file, rank);
+                    PieceType pieceType = TypeAtSquare(square);
+
+                    if (pieceType == PieceType.None)
+                        adjacentEmptySquares++;
+
+                    else
+                    {
+                        if (adjacentEmptySquares > 0)
+                        {
+                            fen.Append(adjacentEmptySquares);
+                            adjacentEmptySquares = 0;
+                        }
+
+                        fen.Append(PieceToChar(pieceType, square));
+                    }
+                }
+
+                if (adjacentEmptySquares > 0)
+                    fen.Append(adjacentEmptySquares);
+
+                if (rank > Rank.One)
+                    fen.Append('/');
+            }
+
+            return fen;
+        }
+
+        private char PieceToChar(PieceType pieceType, Square square)
+        {
+            bool isWhite = (Bitboards.From(square) & WhitePieces) != 0;
+            return pieceType switch
+            {
+                PieceType.Pawn => isWhite ? 'P' : 'p',
+                PieceType.Knight => isWhite ? 'N' : 'n',
+                PieceType.Bishop => isWhite ? 'B' : 'b',
+                PieceType.Rook => isWhite ? 'R' : 'r',
+                PieceType.Queen => isWhite ? 'Q' : 'q',
+                PieceType.King => isWhite ? 'K' : 'k',
+                _ => ' ',
+            };
+        }
         public override string ToString()
         {
             char piece;
