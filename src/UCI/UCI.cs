@@ -29,7 +29,7 @@ namespace UCI
 
     public static class UniversalChessInterface
     {
-        private const string Name = "Unnamed";
+        private const string Name = "Eric";
         private const string Author = "EricAnderson85";
         private static Position _position = new();
 
@@ -52,6 +52,7 @@ namespace UCI
                 case "uci":
                     Console.WriteLine($"id name {Name}");
                     Console.WriteLine($"id author {Author}");
+                    Console.WriteLine("option name OwnBook type check default ");
                     Console.WriteLine("uciok");
                     break;
 
@@ -134,9 +135,6 @@ namespace UCI
                         break;
                 }
             }
-
-            Searcher.Clear();
-            Perft.Clear();
         }
 
 
@@ -144,7 +142,7 @@ namespace UCI
         private static void HandleGo(string command)
         {
             var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            int depth = 6;
+            int depth = 7;
             bool perftRequested = false;
             int perftDepth = 1;
 
@@ -173,21 +171,15 @@ namespace UCI
             {
                 Console.WriteLine();
 
-                var perftResult = Perft.RunPerft(_position, perftDepth, out int elapsedMilliseconds);
+                var nodesSearched = Perft.RunPerft(_position, perftDepth, out int elapsedMilliseconds);
 
-
-
-                foreach (var move in perftResult.Item2)
-                    Console.WriteLine($"{move.Item1}: {move.Item2}");
-
-                Console.WriteLine($"\n{perftResult.Item1:N0} nodes searched in {elapsedMilliseconds / 1000.0} seconds");
-                Console.WriteLine($"{(perftResult.Item1 / (elapsedMilliseconds / 1000.0)).ToString("N0")} nodes per second");
+                Console.WriteLine($"\n{nodesSearched:N0} nodes searched in {elapsedMilliseconds / 1000.0} seconds");
+                Console.WriteLine($"{nodesSearched / (elapsedMilliseconds / 1000.0):N0} nodes per second");
             }
             else
             {
                 var move = Searcher.StartSearch(_position, depth);
                 Console.WriteLine("bestmove " + move);
-                _position.PerformMove(move);
             }
         }
 

@@ -5,7 +5,7 @@ namespace Search
 {
     public static class Searcher
     {
-        private const int MAX_QUIESCENT_SEARCH_DEPTH = 1;
+        private const int MAX_QUIESCENT_SEARCH_DEPTH = 5;
         private static readonly OpeningBook _openingBookReader = new();
 
         public static MoveWrapper StartSearch(Position position, int depth)
@@ -23,16 +23,15 @@ namespace Search
 
         private static MoveWrapper StartSearchMaximize(Position position, int depth)
         {
-            int maxEval = int.MinValue;
+
 
             List<MoveWrapper> moves = position.AllMoves();
-
             MoveOrderer.OrderMoves(position, moves);
 
-            MoveWrapper maxMove = moves[0];
             int alpha = int.MinValue;
             int beta = int.MaxValue;
-
+            int maxEval = int.MinValue;
+            MoveWrapper maxMove = moves[0];
             foreach (MoveWrapper move in moves)
             {
                 position.PerformMove(move);
@@ -41,7 +40,6 @@ namespace Search
                     position.UndoMove(move);
                     continue;
                 }
-
                 int eval = SearchMinimize(position, depth - 1, alpha, beta);
 
                 position.UndoMove(move);
@@ -104,8 +102,6 @@ namespace Search
             return minMove;
         }
 
-
-
         private static int SearchMaximize(Position position, int movesRemaining, int alpha, int beta)
         {
             if (TranspositionTable.TryGet(position.ZobristKey, movesRemaining, out int evaluation, out Bounds storedBounds))
@@ -129,20 +125,11 @@ namespace Search
             if (movesRemaining == 0)
                 return QuiescentSearchMaximize(position, MAX_QUIESCENT_SEARCH_DEPTH, alpha, beta);
 
-            int maxEval = int.MinValue;
             List<MoveWrapper> moves = position.AllMoves();
-
             MoveOrderer.OrderMoves(position, moves);
 
-            if (moves.Count == 0)
-            {
-                if (position.Board.KingInCheck(Color.White))
-                    return -(Evaluate.MATE_SCORE - movesRemaining);
-
-                return 0;  // Draw
-            }
-
-
+            bool foundLegalMove = false;
+            int maxEval = int.MinValue;
             foreach (MoveWrapper move in moves)
             {
                 position.PerformMove(move);
@@ -153,7 +140,7 @@ namespace Search
                 }
 
                 int eval = SearchMinimize(position, movesRemaining - 1, alpha, beta);
-
+                foundLegalMove = true;
                 position.UndoMove(move);
 
                 maxEval = Math.Max(maxEval, eval);
@@ -168,6 +155,15 @@ namespace Search
                     break; // Beta cut-off}
                 }
             }
+
+            if (!foundLegalMove)
+            {
+                if (position.Board.KingInCheck(Color.White))
+                    return -(Evaluate.MATE_SCORE + movesRemaining);
+
+                return 0;  // Draw
+            }
+
 
             Bounds bounds;
             if (maxEval <= alpha)
@@ -205,20 +201,12 @@ namespace Search
             if (movesRemaining == 0)
                 return QuiescentSearchMinimize(position, MAX_QUIESCENT_SEARCH_DEPTH, alpha, beta);
 
-            int minEval = int.MaxValue;
-            List<MoveWrapper> moves = position.AllMoves();
 
+            List<MoveWrapper> moves = position.AllMoves();
             MoveOrderer.OrderMoves(position, moves);
 
-            if (moves.Count == 0)
-            {
-                if (position.Board.KingInCheck(Color.Black))
-                    return Evaluate.MATE_SCORE - movesRemaining;
-
-                return 0;  // Draw
-            }
-
-
+            bool foundLegalMove = false;
+            int minEval = int.MaxValue;
             foreach (MoveWrapper move in moves)
             {
                 position.PerformMove(move);
@@ -228,6 +216,7 @@ namespace Search
                     continue;
 
                 }
+                foundLegalMove = true;
                 int eval = SearchMaximize(position, movesRemaining - 1, alpha, beta);
 
                 position.UndoMove(move);
@@ -243,6 +232,14 @@ namespace Search
 
                     break; // Alpha cut-off}
                 }
+            }
+
+            if (!foundLegalMove)
+            {
+                if (position.Board.KingInCheck(Color.Black))
+                    return Evaluate.MATE_SCORE + movesRemaining;
+
+                return 0;  // Draw
             }
 
             Bounds bounds;
@@ -275,7 +272,7 @@ namespace Search
                 return standPat;
 
             MoveOrderer.OrderMoves(position, loudMoves, true);
-
+            bool foundLegalMove = false;
             int maxEval = standPat;
             foreach (MoveWrapper move in loudMoves)
             {
@@ -286,6 +283,7 @@ namespace Search
                     continue;
 
                 }
+                foundLegalMove = true;
                 int eval = QuiescentSearchMinimize(position, alpha, beta, movesRemaining - 1);
 
                 position.UndoMove(move);
@@ -297,6 +295,9 @@ namespace Search
                 if (alpha >= beta)
                     break; // Alpha cut-off}
             }
+
+            if (!foundLegalMove)
+                return standPat;
 
             return maxEval;
         }
@@ -318,7 +319,7 @@ namespace Search
                 return standPat;
 
             MoveOrderer.OrderMoves(position, loudMoves, true);
-
+            bool foundLegalMove = false;
             int minEval = int.MaxValue;
             foreach (MoveWrapper move in loudMoves)
             {
@@ -330,7 +331,7 @@ namespace Search
 
                 }
                 int eval = QuiescentSearchMaximize(position, alpha, beta, movesRemaining - 1);
-
+                foundLegalMove = true;
                 position.UndoMove(move);
 
                 minEval = Math.Min(minEval, eval);
@@ -340,6 +341,9 @@ namespace Search
                 if (alpha >= beta)
                     break; // Alpha cut-off}
             }
+
+            if (!foundLegalMove)
+                return standPat;
 
             return minEval;
         }

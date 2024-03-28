@@ -5,7 +5,7 @@ namespace Search
     public static class PerftTranspositionTable
     {
         private const int ENTRY_SIZE = 24;
-        private const int HASH_MEMORY_MEGABYTES = 256;
+        private const int HASH_MEMORY_MEGABYTES = 1000;  // 1 GB
         private const int TABLE_SIZE = HASH_MEMORY_MEGABYTES * 1024 * 1024 / ENTRY_SIZE;
         private static readonly PerftEntry[] _table = new PerftEntry[TABLE_SIZE];
 

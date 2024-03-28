@@ -413,6 +413,9 @@ namespace Core
                 friendlyPieces = board.BlackPieces;
             }
 
+            if (king == 0)
+                return kingMoves;
+
             Square kingSquare = Bitboards.LSB(king);
             IEnumerable<Square> potentialSquares = Bitboards.ToSquares(AttackTables.KingAttacks[(int)kingSquare]);
             foreach (Square to in potentialSquares)

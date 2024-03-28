@@ -79,7 +79,24 @@ namespace Core
 
         public bool KingInCheck(Color kingColor)
         {
-            return kingColor == Color.White ? AttackedByBlack(Bitboards.LSB(WhiteKing)) : AttackedByWhite(Bitboards.LSB(BlackKing));
+            switch (kingColor)
+            {
+                case Color.White:
+                    {
+                        if (WhiteKing == 0)
+                            return true;
+
+                        return AttackedByBlack(Bitboards.LSB(WhiteKing));
+                    }
+
+                default:
+                    {
+                        if (BlackKing == 0)
+                            return true;
+
+                        return AttackedByWhite(Bitboards.LSB(BlackKing));
+                    }
+            };
         }
 
         public void Move(Move move, PieceType pieceType, PieceType enemyPieceType, Color turn)
